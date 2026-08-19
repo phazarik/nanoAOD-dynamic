@@ -1,0 +1,24 @@
+# ROOT compiled files and dictionaries (ACLiC)
+*.so
+*.d
+*.pcm
+*.o
+*_ACLiC_*
+*_rdict.pcm
+*.rootmap
+
+# Data and output files
+*.root
+inputs/
+outputs/
+*.txt
+
+# Editor backups and temp files
+*~
+*.swp
+*.swo
+.vscode/
+
+# Build and environment artifacts
+__pycache__/
+.env

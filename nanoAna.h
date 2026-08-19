@@ -46,6 +46,11 @@
 #include "TString.h"
 #include <bitset>
 
+// Headers specific to ONNX
+#include "onnxruntime-linux-x64-1.24.4/include/onnxruntime_cxx_api.h"
+#include <TVector3.h>
+#include <TVector2.h>
+
 //////////////////////////////////////////////////////////////////
 //                                                              //
 //            DO NOT CHANGE THE FOLLOWING TEMPLATES             //
@@ -333,6 +338,37 @@ public :
   DynamicArrayReader<float> Electron_superclusterEta;
   DynamicArrayReader<float> Electron_promptMVA;
 
+  // Jets
+  DynamicValueReader<int> nJet;
+  DynamicArrayReader<float> Jet_area;
+  DynamicArrayReader<float> Jet_btagDeepFlavB;
+  DynamicArrayReader<float> Jet_chEmEF;
+  DynamicArrayReader<float> Jet_chHEF;
+  DynamicArrayReader<float> Jet_eta;
+  DynamicArrayReader<float> Jet_mass;
+  DynamicArrayReader<float> Jet_muEF;
+  DynamicArrayReader<float> Jet_muonSubtrFactor;
+  DynamicArrayReader<float> Jet_neEmEF;
+  DynamicArrayReader<float> Jet_neHEF;
+  DynamicArrayReader<float> Jet_phi;
+  DynamicArrayReader<float> Jet_pt;
+  DynamicArrayReader<int> Jet_electronIdx1;
+  DynamicArrayReader<int> Jet_electronIdx2; 
+  DynamicArrayReader<int> Jet_jetId;
+  DynamicArrayReader<int> Jet_muonIdx1;     
+  DynamicArrayReader<int> Jet_muonIdx2;     
+  DynamicArrayReader<int> Jet_nElectrons;
+  DynamicArrayReader<int> Jet_nMuons;
+
+  // MET
+  DynamicValueReader<float> PuppiMET_phi;
+  DynamicValueReader<float> PuppiMET_phiJERUp;
+  DynamicValueReader<float> PuppiMET_phiJESUp;
+  DynamicValueReader<float> PuppiMET_pt;
+  DynamicValueReader<float> PuppiMET_ptJERUp;
+  DynamicValueReader<float> PuppiMET_ptJESUp;
+  DynamicValueReader<float> PuppiMET_sumEt;
+
   // Muons
   DynamicValueReader<int> nMuon;
   DynamicArrayReader<bool> Muon_looseId;
@@ -363,6 +399,23 @@ public :
   DynamicArrayReader<float> Muon_sip3d;
   DynamicArrayReader<float> Muon_tkRelIso;
   DynamicArrayReader<float> Muon_promptMVA;
+
+  // GenParticles
+  DynamicValueReader<int> nGenPart;
+  DynamicArrayReader<float> GenPart_eta;
+  DynamicArrayReader<float> GenPart_mass;
+  DynamicArrayReader<float> GenPart_phi;
+  DynamicArrayReader<float> GenPart_pt;
+  DynamicArrayReader<int> GenPart_genPartIdxMother;
+  DynamicArrayReader<int> GenPart_pdgId;
+  DynamicArrayReader<int> GenPart_status;
+
+  // GenMET
+  DynamicValueReader<float> GenMET_phi;
+  DynamicValueReader<float> GenMET_pt;
+
+  // Jet Flavor
+  DynamicArrayReader<int> Jet_hadronFlavour;
 
   nanoAna(TTree * /*tree*/ =0) { }
   ~nanoAna() override { }
@@ -447,11 +500,32 @@ private:
   time_t start, end, buffer;
   
   // Arrays of objects used in analysis:
-  vector<Particle> RecoMu;
+  vector<Particle> RecoMu, RecoJet;
+
+  //---------------------------------------------------------------------------------
+  // DNN block
+  // Global variables for DNNs:
+  Ort::Env* ort_env; 
+
+  // DNN 1: DY-vs-VLLD
+  Ort::Session* session_dy;
+  std::vector<float> scale_min_dy;
+  std::vector<float> scale_max_dy;
+
+  // Add other DNN sessions here ...
+
+  // DNN specific functions:
+  vector<float> loadScalingParameters(const char* filename);
+  float evaluateDNN(Ort::Session* session, 
+		    std::vector<float> input_vars, 
+		    const std::vector<float>& scale_min, 
+		    const std::vector<float>& scale_max,
+		    const char* input_name = "input",    //Specific to the model
+		    const char* output_name = "output"); //Specific to the model
+  //---------------------------------------------------------------------------------
+  
 
   ClassDefOverride(nanoAna,0);
 };
-
-
 
 #endif

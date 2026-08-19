@@ -64,6 +64,37 @@ void nanoAna::Init(TTree *tree)
   Electron_superclusterEta.Init(tree, fReader, "Electron_superclusterEta");
   Electron_promptMVA.Init(tree, fReader, "Electron_promptMVA");
 
+  // Initialize Jet
+  nJet.Init(tree, fReader, "nJet", 0);
+  Jet_area.Init(tree, fReader, "Jet_area");
+  Jet_btagDeepFlavB.Init(tree, fReader, "Jet_btagDeepFlavB");
+  Jet_chEmEF.Init(tree, fReader, "Jet_chEmEF");
+  Jet_chHEF.Init(tree, fReader, "Jet_chHEF");
+  Jet_eta.Init(tree, fReader, "Jet_eta");
+  Jet_mass.Init(tree, fReader, "Jet_mass");
+  Jet_muEF.Init(tree, fReader, "Jet_muEF");
+  Jet_muonSubtrFactor.Init(tree, fReader, "Jet_muonSubtrFactor");
+  Jet_neEmEF.Init(tree, fReader, "Jet_neEmEF");
+  Jet_neHEF.Init(tree, fReader, "Jet_neHEF");
+  Jet_phi.Init(tree, fReader, "Jet_phi");
+  Jet_pt.Init(tree, fReader, "Jet_pt");
+  Jet_electronIdx1.Init(tree, fReader, "Jet_electronIdx1");
+  Jet_electronIdx2.Init(tree, fReader, "Jet_electronIdx2");
+  Jet_jetId.Init(tree, fReader, "Jet_jetId");
+  Jet_muonIdx1.Init(tree, fReader, "Jet_muonIdx1");
+  Jet_muonIdx2.Init(tree, fReader, "Jet_muonIdx2");
+  Jet_nElectrons.Init(tree, fReader, "Jet_nElectrons");
+  Jet_nMuons.Init(tree, fReader, "Jet_nMuons");
+
+  // Initialize MET
+  PuppiMET_phi.Init(tree, fReader, "PuppiMET_phi", 0);
+  PuppiMET_phiJERUp.Init(tree, fReader, "PuppiMET_phiJERUp", 0);
+  PuppiMET_phiJESUp.Init(tree, fReader, "PuppiMET_phiJESUp", 0);
+  PuppiMET_pt.Init(tree, fReader, "PuppiMET_pt", 0);
+  PuppiMET_ptJERUp.Init(tree, fReader, "PuppiMET_ptJERUp", 0);
+  PuppiMET_ptJESUp.Init(tree, fReader, "PuppiMET_ptJESUp", 0);
+  PuppiMET_sumEt.Init(tree, fReader, "PuppiMET_sumEt", 0);
+  
   // Initialize Muons
   nMuon.Init(tree, fReader, "nMuon", 0);
   Muon_looseId.Init(tree, fReader, "Muon_looseId");
@@ -94,6 +125,24 @@ void nanoAna::Init(TTree *tree)
   Muon_sip3d.Init(tree, fReader, "Muon_sip3d");
   Muon_tkRelIso.Init(tree, fReader, "Muon_tkRelIso");
   Muon_promptMVA.Init(tree, fReader, "Muon_promptMVA");
+
+  // Initialize GenParticles
+  nGenPart.Init(tree, fReader, "nGenPart", 0);
+  GenPart_eta.Init(tree, fReader, "GenPart_eta");
+  GenPart_mass.Init(tree, fReader, "GenPart_mass");
+  GenPart_phi.Init(tree, fReader, "GenPart_phi");
+  GenPart_pt.Init(tree, fReader, "GenPart_pt");
+  GenPart_genPartIdxMother.Init(tree, fReader, "GenPart_genPartIdxMother");
+  GenPart_pdgId.Init(tree, fReader, "GenPart_pdgId");
+  GenPart_status.Init(tree, fReader, "GenPart_status");
+
+  // Initialize GenMET
+  GenMET_phi.Init(tree, fReader, "GenMET_phi");
+  GenMET_pt.Init(tree, fReader, "GenMET_pt");
+
+  // Initialize Jet Flavor
+  Jet_hadronFlavour.Init(tree, fReader, "Jet_hadronFlavour");
+
 }
 
 bool nanoAna::Notify()

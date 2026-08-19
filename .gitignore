@@ -27,4 +27,4 @@ __pycache__/
 ## Do not ignore anything related to DNNs
 !onnxruntime*/
 !onnxruntime*/**
-trained_models/
+!trained_models/

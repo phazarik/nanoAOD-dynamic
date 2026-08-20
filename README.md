@@ -9,7 +9,8 @@ This template fixes that using **dynamic typecasting**. Here is what it brings t
 - **Live DNN evaluation:** It has ONNX baked in (with an example DNN). Pre-trained neural networks can be run event-by-event for on-the-fly event selection and categorization.
 
 - **Plug-and-play ONNX:** To completely avoid annoying environment and setup issues, I just dropped a pre-compiled ONNX runtime directly into the repo and hardcoded the paths. No need to build from source
-> For more details on the C++ API, check out the [official ONNX Runtime docs](https://onnxruntime.ai/docs/).
+> For more details on the C++ API, check out the [official ONNX Runtime docs](https://onnxruntime.ai/docs/).<br>
+> **For users outside the CMS Collaboration:** NanoAOD samples are available through the [CERN Open Data Portal](https://opendata.cern.ch/docs/cms-getting-started-nanoaod).
 
 ## Structure
 ```bash

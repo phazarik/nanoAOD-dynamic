@@ -36,7 +36,8 @@ But there is another way. This template uses **dynamic typecasting** to adapt to
 ├── inputs
 ├── outputs
 ├── runOnce.C            # Driver that runs the compiled setup.
-└── compile_and_run.C    # Wrapper around the driver; handles library loading and compilation
+├── compile_and_run.C    # Wrapper around the driver; handles library loading and compilation
+└── runAll.py            # Python script that runs compile_and_run on all input samples
 ```
 Here is how the pieces fit together during a run:
 
@@ -55,6 +56,12 @@ root -l compile_and_run.C
 -   Manages input/output paths as provided in the script.
 -   Accepts additional parameters such as the `sample` name and data-taking `era`.
 -  Setting the `sample` parameter to a string containing `"Muon"`, `"EGamma"`, or `"Electron"` will automatically set the internal `_data = 1` flag.
+
+For processing multiple configured samples, use the provided Python wrapper `runAll.py`. The script stores the input/output paths, data-taking era, and sample name for each sample in a single configuration dictionary. Make sure to edit the `SAMPLES` dictionary with the appropriate input file, output file, sample name, and data-taking era. For data samples, make sure the sample name contains `"Muon"`, `"EGamma"`, or `"Electron"` so that the analysis scripts correctly identify the sample as data.
+```bash
+python3 runAll.py                # run all configured samples iteratively
+python3 runAll.py --sample dyv12 # run a specific sample using its configuration key
+```
 
 ### What is happening under the hood
 To understand the underlying mechanics or to debug the compilation process, the setup can be compiled and executed manually inside an interactive ROOT session.

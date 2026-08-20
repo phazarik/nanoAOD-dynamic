@@ -13,7 +13,8 @@ default_junk = [
     "*.so", 
     "*.d", 
     "*.pcm", 
-    "*_ACLiC_*"
+    "*_ACLiC_*",
+    "headers/*~"
 ]
 
 for f in default_junk:

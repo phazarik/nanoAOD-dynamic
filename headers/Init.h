@@ -1,6 +1,6 @@
 #ifndef nanoAna_Init_h
 #define nanoAna_Init_h
-#include "nanoAna.h"
+#include "../nanoAna.h"
 
 void nanoAna::Init(TTree *tree)
 {

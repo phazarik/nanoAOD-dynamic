@@ -100,14 +100,13 @@ The `Init` method binds the variable to the input tree. It takes the target tree
 ```cpp
 fixedGridRhoFastjetAll.Init(tree,fReader,{"Rho_fixedGridRhoFastjetAll","fixedGridRhoFastjetAll"},0.0);
 ```
-**Smart Fallback Values:** 
-Deciding whether to pass a default fallback value changes how the reader behaves when a branch goes missing:
+**Smart fallback:** The best (and worst) part of this setup is that the compiled code will not automatically break during runtime if a branch happens to be missing in the input file, which can easily result in a silent bug in the logic. That is exactly why using the right fallback option is crucial. Deciding whether to pass a default fallback value changes how the reader behaves when a branch goes missing:
 
-- **Strict mode (no fallback provided):** If a required branch is missing and no fallback value was given during initialization, accessing it later in the analysis throws a bright red `std::runtime_error`. This avoids silent bugs. This strictness is often completely intentional for safety. For example, a missing MVA score should absolutely trigger a crash rather than silently evaluating to a default value.
+- **Strict mode (no fallback provided):** If a required branch is missing and no fallback value was given during initialization, accessing it later in the analysis throws a bright red `std::runtime_error`. This avoids the silent bugs. This strictness is often completely intentional for safety. For example, a missing MVA score should absolutely trigger a crash rather than silently evaluating to a default value.
     
-- **Safe skipping (zero fallback):** For MC-only variables like `nGenPart`, passing a default of `0` means running over collision data won't break anything. The branch is missing, `nGenPart` safely evaluates to `0`, and any gen-level loops skip themselves. This trick allows the exact same `fReader` to handle both data and MC seamlessly. While throwing in an `if(_data == 0)` check is still recommended for good measure, maintaining separate readers or editing the source code for data runs is no longer required!
+- **Safe skipping (fallback set to zero):** For MC-only variables like `nGenPart`, passing a default of `0` means running over data won't break anything. The branch is missing, and `nGenPart` safely evaluates to `0`, and any gen-level loops skip themselves. This trick allows the exact same `fReader` to handle both data and MC seamlessly. While throwing in an `if(_data == 0)` check is still recommended for good measure, maintaining separate readers or editing the source code for data runs is no longer required!
     
-- **Neutral fallbacks (weight variables):** Samples like QCD often drop specific weight branches. Providing a neutral fallback like `1.0` avoids recompiling or hacking up the core code while keeping math operations mathematically safe.
+- **Neutral fallbacks (weight variables):** Within the same NanoAOD version, samples like QCD often drop LHE-weight branches. Providing a neutral fallback like `1.0` avoids recompiling or hacking up the core code while keeping math operations mathematically safe.
 	```cpp
 	LHEWeight_originalXWGTUP.Init(tree, fReader, "LHEWeight_originalXWGTUP", 1.0);
 	```

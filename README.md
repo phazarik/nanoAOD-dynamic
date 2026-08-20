@@ -2,14 +2,24 @@
 
 ![C++](https://img.shields.io/badge/C%2B%2B-17-blue?style=flat-square) ![ROOT](https://img.shields.io/badge/ROOT-6.26%2B-2c8?style=flat-square) ![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-1.24.4-orange?style=flat-square)
 
-Handling different versions of NanoAOD can be challenging due to evolving data types and changing branch names across production campaigns. Because ROOT's `TTreeReaderValue` and `TTreeReaderArray` are strictly typed, version transitions often break analysis frameworks.
-This template fixes that using **dynamic typecasting**. Here is what it brings to the table:
-- **Auto-adapts to versions:** It automatically detects the correct branch types and looks for fallback names during setup. No need to rewrite the core logic every time a NanoAOD version changes.
+*One `fReader` to read them all,*  <br>
+*One `fReader` to bind them,*  <br>
+*Dynamic casting to handle them all,* <br> 
+*And through the branches, find them.* 
 
-- **Live DNN evaluation:** It has ONNX baked in (with an example DNN). Pre-trained neural networks can be run event-by-event for on-the-fly event selection and categorization.
+The world of NanoAOD is ever changing. Much has happened since the earlier productions, and with Run 3, many things have been altered.
 
-- **Plug-and-play ONNX:** To completely avoid annoying environment and setup issues, I just dropped a pre-compiled ONNX runtime directly into the repo and hardcoded the paths. No need to build from source
-> For more details on the C++ API, check out the [official ONNX Runtime docs](https://onnxruntime.ai/docs/).<br>
+It began with the introduction of NanoAODv15. Data types changed, branch names were altered, and what once worked may no longer survive. Deep within the analysis framework, ROOT's strictly typed `TTreeReaderValue` and `TTreeReaderArray` expect the branches they read to match their declared types. Even seemingly small changes between productions can therefore break an analysis. In the C++/ROOT `MakeSelector`-style framework, adapting to a new NanoAOD version often meant manually changing the generated source code to match the new branch types and names, followed by recompilation.
+
+But there is another way. This template uses **dynamic typecasting** to adapt to these changes, allowing the same analysis setup to be compiled and used across different NanoAOD versions without rewriting the core analysis logic. Here is what it brings to the table:
+
+- **Auto-adapts to versions:** Automatically detects the branch types in the input file and supports fallback names when branches change between productions. The core analysis logic does not need to be rewritten for each NanoAOD version.
+
+- **Live DNN evaluation:** Integrates ONNX Runtime for event-by-event evaluation of pre-trained neural networks, enabling on-the-fly event selection and categorization. A working example DNN is included.
+
+- **Plug-and-play ONNX:** Includes a pre-compiled ONNX Runtime library with the required paths already configured, avoiding the need to build ONNX Runtime from source or deal with additional environment setup.
+
+> For more details on the C++ API, check out the [official ONNX Runtime documentation](https://onnxruntime.ai/docs/).<br>
 > **For users outside the CMS Collaboration:** NanoAOD samples are available through the [CERN Open Data Portal](https://opendata.cern.ch/docs/cms-getting-started-nanoaod).
 
 ## Structure

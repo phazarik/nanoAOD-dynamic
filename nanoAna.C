@@ -119,8 +119,12 @@ void nanoAna::SlaveTerminate()
 
   // Print time taken:
   time(&end);
-  double time_taken = double(end - start);
-  cout<<"\n\033[34mTime taken to process = " << (int)time_taken << " seconds.\033[0m"<< endl;
+  int time_taken = int(end - start);
+  int H = time_taken / 3600;
+  int M = (time_taken % 3600) / 60;
+  int S = time_taken % 60;
+  cout << "\n>> Process() time: \033[34m"<< Form("%02d:%02d:%02d", H, M, S)<< "\033[0m" << endl;
+  
 }
 void nanoAna::Terminate()
 {

@@ -63,7 +63,7 @@ void runOnce(
   m_selec.SetSumFileName(sumfile.Data());
   m_selec.SetData(data);
   m_selec.SetEra(era);
-  m_selec.SetVerbose(1000); //After how many events do you want a report?
+  m_selec.SetVerbose(10000); //After how many events do you want a report?
   
   // Call the process function which runs the code.
   cout<<YELLOW<<BOLD<<"\nRunning the event processor ... \n"<<RESET;

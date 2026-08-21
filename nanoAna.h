@@ -79,9 +79,11 @@ public :
   // Additional branches handled dynamically
   // The variable names and types below are user-defined and can be customized.
   // The corresponding NanoAOD branch names are specified and initialized in Init.h.
-  DynamicValueReader<float> fixedGridRhoFastjetAll;
-  DynamicValueReader<float> LHEWeight_originalXWGTUP;
 
+  //-------------------------
+  // Regular branches
+  //-------------------------
+  
   // Electrons
   DynamicValueReader<int> nElectron;
   DynamicArrayReader<bool> Electron_convVeto;
@@ -125,10 +127,27 @@ public :
   DynamicArrayReader<float> Electron_superclusterEta;
   DynamicArrayReader<float> Electron_promptMVA;
 
+  // IsoTracks
+  DynamicValueReader<int> nIsoTrack;
+  DynamicArrayReader<bool> IsoTrack_isHighPurityTrack;
+  DynamicArrayReader<bool> IsoTrack_isPFcand;
+  DynamicArrayReader<bool> IsoTrack_isFromLostTrack;
+  DynamicArrayReader<int> IsoTrack_charge;
+  DynamicArrayReader<int> IsoTrack_fromPV;
+  DynamicArrayReader<int> IsoTrack_pdgId;
+  DynamicArrayReader<float> IsoTrack_dxy;
+  DynamicArrayReader<float> IsoTrack_dz;
+  DynamicArrayReader<float> IsoTrack_eta;
+  DynamicArrayReader<float> IsoTrack_pfRelIso03_all;
+  DynamicArrayReader<float> IsoTrack_pfRelIso03_chg;
+  DynamicArrayReader<float> IsoTrack_phi;
+  DynamicArrayReader<float> IsoTrack_pt;
+  DynamicArrayReader<float> IsoTrack_miniPFRelIso_all;
+  DynamicArrayReader<float> IsoTrack_miniPFRelIso_chg;
+
   // Jets
   DynamicValueReader<int> nJet;
   DynamicArrayReader<float> Jet_area;
-  DynamicArrayReader<float> Jet_btagDeepFlavB;
   DynamicArrayReader<float> Jet_chEmEF;
   DynamicArrayReader<float> Jet_chHEF;
   DynamicArrayReader<float> Jet_eta;
@@ -146,16 +165,36 @@ public :
   DynamicArrayReader<int> Jet_muonIdx2;     
   DynamicArrayReader<int> Jet_nElectrons;
   DynamicArrayReader<int> Jet_nMuons;
+  DynamicArrayReader<int> Jet_hadronFlavour; // Gen
+  // Note on Jet Flavor: All other Jet_* will run on data, but Jet_hadronFlavor will not.
+  // Do not initiallize with fallback value; use _data flag before using it.
+  // Let the code crash in case it is used outside if(_data==1).
 
-  // MET
-  DynamicValueReader<float> PuppiMET_phi;
-  DynamicValueReader<float> PuppiMET_phiJERUp;
-  DynamicValueReader<float> PuppiMET_phiJESUp;
-  DynamicValueReader<float> PuppiMET_pt;
-  DynamicValueReader<float> PuppiMET_ptJERUp;
-  DynamicValueReader<float> PuppiMET_ptJESUp;
-  DynamicValueReader<float> PuppiMET_sumEt;
-
+  // b-tagging scores
+  DynamicArrayReader<float> Jet_btagDeepFlavB;
+  DynamicArrayReader<float> Jet_btagDeepFlavCvB;
+  DynamicArrayReader<float> Jet_btagDeepFlavCvL;
+  DynamicArrayReader<float> Jet_btagDeepFlavQG;
+  DynamicArrayReader<float> Jet_btagPNetB;
+  DynamicArrayReader<float> Jet_btagPNetCvB;
+  DynamicArrayReader<float> Jet_btagPNetCvL;
+  DynamicArrayReader<float> Jet_btagPNetCvNotB;
+  DynamicArrayReader<float> Jet_btagPNetQvG;
+  DynamicArrayReader<float> Jet_btagPNetTauVJet;
+  DynamicArrayReader<float> Jet_btagUParTAK4B;
+  DynamicArrayReader<float> Jet_btagUParTAK4CvB;
+  DynamicArrayReader<float> Jet_btagUParTAK4CvL;
+  DynamicArrayReader<float> Jet_btagUParTAK4CvNotB;
+  DynamicArrayReader<float> Jet_btagUParTAK4Ele;
+  DynamicArrayReader<float> Jet_btagUParTAK4Mu;
+  DynamicArrayReader<float> Jet_btagUParTAK4QvG;
+  DynamicArrayReader<float> Jet_btagUParTAK4SvCB;
+  DynamicArrayReader<float> Jet_btagUParTAK4SvUDG;
+  DynamicArrayReader<float> Jet_btagUParTAK4TauVJet;
+  DynamicArrayReader<float> Jet_btagUParTAK4UDG;
+  DynamicArrayReader<float> Jet_btagUParTAK4probb;
+  DynamicArrayReader<float> Jet_btagUParTAK4probbb;
+  
   // Muons
   DynamicValueReader<int> nMuon;
   DynamicArrayReader<bool> Muon_looseId;
@@ -187,6 +226,149 @@ public :
   DynamicArrayReader<float> Muon_tkRelIso;
   DynamicArrayReader<float> Muon_promptMVA;
 
+  // Photons
+  DynamicValueReader<int> nPhoton;
+  DynamicArrayReader<float> Photon_energyErr;
+  DynamicArrayReader<float> Photon_eta;
+  DynamicArrayReader<float> Photon_hoe;
+  DynamicArrayReader<float> Photon_mvaID;
+  DynamicArrayReader<float> Photon_phi;
+  DynamicArrayReader<float> Photon_pt;
+  DynamicArrayReader<float> Photon_r9;
+  DynamicArrayReader<float> Photon_sieie;
+  DynamicArrayReader<int> Photon_cutBased;
+  DynamicArrayReader<int> Photon_electronIdx;
+  DynamicArrayReader<int> Photon_jetIdx;
+  DynamicArrayReader<int> Photon_vidNestedWPBitmap;
+  DynamicArrayReader<bool> Photon_electronVeto;
+  DynamicArrayReader<bool> Photon_isScEtaEB;
+  DynamicArrayReader<bool> Photon_isScEtaEE;
+  DynamicArrayReader<bool> Photon_mvaID_WP80;
+  DynamicArrayReader<bool> Photon_mvaID_WP90;
+  DynamicArrayReader<bool> Photon_pixelSeed;
+  DynamicArrayReader<unsigned char> Photon_seedGain;
+  DynamicArrayReader<float> Photon_pfRelIso03_all;
+  DynamicArrayReader<float> Photon_pfRelIso03_chg;
+
+  // PuppiMET
+  DynamicValueReader<float> PuppiMET_phi;
+  DynamicValueReader<float> PuppiMET_phiJERUp;
+  DynamicValueReader<float> PuppiMET_phiJESUp;
+  DynamicValueReader<float> PuppiMET_pt;
+  DynamicValueReader<float> PuppiMET_ptJERUp;
+  DynamicValueReader<float> PuppiMET_ptJESUp;
+  DynamicValueReader<float> PuppiMET_sumEt;
+
+  // Rho (used during JEC/JES)
+  DynamicValueReader<float> fixedGridRhoFastjetAll;
+  DynamicValueReader<float> fixedGridRhoFastjetCentral;
+  DynamicValueReader<float> fixedGridRhoFastjetCentralCalo;
+  DynamicValueReader<float> fixedGridRhoFastjetCentralChargedPileUp;
+  DynamicValueReader<float> fixedGridRhoFastjetCentralNeutral;
+
+  // Taus
+  DynamicValueReader<int> nTau;
+  DynamicArrayReader<float> Tau_chargedIso;
+  DynamicArrayReader<float> Tau_dxy;
+  DynamicArrayReader<float> Tau_dz;
+  DynamicArrayReader<float> Tau_eta;
+  DynamicArrayReader<float> Tau_leadTkDeltaEta;
+  DynamicArrayReader<float> Tau_leadTkDeltaPhi;
+  DynamicArrayReader<float> Tau_leadTkPtOverTauPt;
+  DynamicArrayReader<float> Tau_mass;
+  DynamicArrayReader<float> Tau_neutralIso;
+  DynamicArrayReader<float> Tau_phi;
+  DynamicArrayReader<float> Tau_photonsOutsideSignalCone;
+  DynamicArrayReader<float> Tau_pt;
+  DynamicArrayReader<float> Tau_puCorr;
+  DynamicArrayReader<float> Tau_rawDeepTau2017v2p1VSe;
+  DynamicArrayReader<float> Tau_rawDeepTau2017v2p1VSjet;
+  DynamicArrayReader<float> Tau_rawDeepTau2017v2p1VSmu;
+  DynamicArrayReader<float> Tau_rawIso;
+  DynamicArrayReader<float> Tau_rawIsodR03;
+  DynamicArrayReader<int> Tau_charge;
+  DynamicArrayReader<int> Tau_decayMode;
+  DynamicArrayReader<int> Tau_jetIdx;
+  DynamicArrayReader<unsigned char> Tau_idAntiMu;
+  DynamicArrayReader<unsigned char> Tau_idDeepTau2017v2p1VSe;
+  DynamicArrayReader<unsigned char> Tau_idDeepTau2017v2p1VSjet;
+  DynamicArrayReader<unsigned char> Tau_idDeepTau2017v2p1VSmu;
+
+  // TrigObj
+  DynamicValueReader<int> nTrigObj;
+  DynamicArrayReader<float> TrigObj_pt;
+  DynamicArrayReader<float> TrigObj_eta;
+  DynamicArrayReader<float> TrigObj_phi;
+  DynamicArrayReader<float> TrigObj_l1pt;
+  DynamicArrayReader<float> TrigObj_l1pt_2;
+  DynamicArrayReader<float> TrigObj_l2pt;
+  DynamicArrayReader<int> TrigObj_id;
+  DynamicArrayReader<int> TrigObj_l1iso;
+  DynamicArrayReader<int> TrigObj_l1charge;
+  DynamicArrayReader<int> TrigObj_filterBits;
+
+  //-------------------------
+  // Booleans
+  //-------------------------
+  
+  // Flags
+  DynamicValueReader<bool> Flag_HBHENoiseFilter;
+  DynamicValueReader<bool> Flag_HBHENoiseIsoFilter;
+  DynamicValueReader<bool> Flag_CSCTightHaloFilter;
+  DynamicValueReader<bool> Flag_CSCTightHaloTrkMuUnvetoFilter;
+  DynamicValueReader<bool> Flag_CSCTightHalo2015Filter;
+  DynamicValueReader<bool> Flag_globalTightHalo2016Filter;
+  DynamicValueReader<bool> Flag_globalSuperTightHalo2016Filter;
+  DynamicValueReader<bool> Flag_HcalStripHaloFilter;
+  DynamicValueReader<bool> Flag_hcalLaserEventFilter;
+  DynamicValueReader<bool> Flag_EcalDeadCellTriggerPrimitiveFilter;
+  DynamicValueReader<bool> Flag_EcalDeadCellBoundaryEnergyFilter;
+  DynamicValueReader<bool> Flag_ecalBadCalibFilter;
+  DynamicValueReader<bool> Flag_goodVertices;
+  DynamicValueReader<bool> Flag_eeBadScFilter;
+  DynamicValueReader<bool> Flag_ecalLaserCorrFilter;
+  DynamicValueReader<bool> Flag_trkPOGFilters;
+  DynamicValueReader<bool> Flag_chargedHadronTrackResolutionFilter;
+  DynamicValueReader<bool> Flag_muonBadTrackFilter;
+  DynamicValueReader<bool> Flag_BadChargedCandidateFilter;
+  DynamicValueReader<bool> Flag_BadPFMuonFilter;
+  DynamicValueReader<bool> Flag_BadPFMuonDzFilter;
+  DynamicValueReader<bool> Flag_hfNoisyHitsFilter;
+  DynamicValueReader<bool> Flag_BadChargedCandidateSummer16Filter;
+  DynamicValueReader<bool> Flag_BadPFMuonSummer16Filter;
+  DynamicValueReader<bool> Flag_trkPOG_manystripclus53X;
+  DynamicValueReader<bool> Flag_trkPOG_toomanystripclus53X;
+  DynamicValueReader<bool> Flag_trkPOG_logErrorTooManyClusters;
+  DynamicValueReader<bool> Flag_METFilters;
+
+  // HLT paths
+  DynamicValueReader<bool> HLT_IsoMu24;
+  DynamicValueReader<bool> HLT_IsoMu27;
+  DynamicValueReader<bool> HLT_Ele27_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele30_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele32_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele35_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele38_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele40_WPTight_Gsf;
+  DynamicValueReader<bool> HLT_Ele32_WPTight_Gsf_L1DoubleEG;
+  DynamicValueReader<bool> HLT_IsoMu20;
+  DynamicValueReader<bool> HLT_IsoMu24_eta2p1;
+
+  //-------------------------
+  // Gen-level branches
+  //-------------------------
+
+  // GenJet
+  DynamicValueReader<int> nGenJet;
+  DynamicArrayReader<float> GenJet_eta;
+  DynamicArrayReader<float> GenJet_mass;
+  DynamicArrayReader<float> GenJet_phi;
+  DynamicArrayReader<float> GenJet_pt;
+  
+  // GenMET
+  DynamicValueReader<float> GenMET_phi;
+  DynamicValueReader<float> GenMET_pt;
+  
   // GenParticles
   DynamicValueReader<int> nGenPart;
   DynamicArrayReader<float> GenPart_eta;
@@ -197,12 +379,52 @@ public :
   DynamicArrayReader<int> GenPart_pdgId;
   DynamicArrayReader<int> GenPart_status;
 
-  // GenMET
-  DynamicValueReader<float> GenMET_phi;
-  DynamicValueReader<float> GenMET_pt;
+  // GenVisTau
+  DynamicValueReader<int> nGenVisTau;
+  DynamicArrayReader<float> GenVisTau_eta;
+  DynamicArrayReader<float> GenVisTau_mass;
+  DynamicArrayReader<float> GenVisTau_phi;
+  DynamicArrayReader<float> GenVisTau_pt;
+  DynamicArrayReader<int> GenVisTau_charge;
+  DynamicArrayReader<int> GenVisTau_genPartIdxMother;
+  DynamicArrayReader<int> GenVisTau_status;
 
-  // Jet Flavor
-  DynamicArrayReader<int> Jet_hadronFlavour;
+  // LHE weights (non-QCD MC)
+  DynamicValueReader<float> LHEWeight_originalXWGTUP;
+  DynamicValueReader<int> nLHEPdfWeight;
+  DynamicArrayReader<float> LHEPdfWeight;
+  DynamicValueReader<int> nLHEReweightingWeight;
+  DynamicArrayReader<float> LHEReweightingWeight;
+  DynamicValueReader<int> nLHEScaleWeight;
+  DynamicArrayReader<float> LHEScaleWeight;
+
+  // LHE
+  DynamicValueReader<int> LHE_Njets;
+  DynamicValueReader<int> LHE_Nb;
+  DynamicValueReader<int> LHE_Nc;
+  DynamicValueReader<int> LHE_Nuds;
+  DynamicValueReader<int> LHE_Nglu;
+  DynamicValueReader<int> LHE_NpNLO;
+  DynamicValueReader<int> LHE_NpLO;
+  DynamicValueReader<float> LHE_HT;
+  DynamicValueReader<float> LHE_HTIncoming;
+  DynamicValueReader<float> LHE_Vpt;
+  DynamicValueReader<float> LHE_AlphaS;
+
+  // LHEPart
+  DynamicValueReader<int> nLHEPart;
+  DynamicArrayReader<int> LHEPart_firstMotherIdx;
+  DynamicArrayReader<int> LHEPart_lastMotherIdx;
+  DynamicArrayReader<int> LHEPart_pdgId;
+  DynamicArrayReader<int> LHEPart_status;
+  DynamicArrayReader<int> LHEPart_spin;
+  DynamicArrayReader<float> LHEPart_pt;
+  DynamicArrayReader<float> LHEPart_eta;
+  DynamicArrayReader<float> LHEPart_phi;
+  DynamicArrayReader<float> LHEPart_mass;
+  DynamicArrayReader<float> LHEPart_incomingpz;
+
+  //-----------------------------------------------------------------------
 
   nanoAna(TTree * /*tree*/ =0) { }
   ~nanoAna() override { }
@@ -278,7 +500,7 @@ private:
   bool GoodEvt, GoodEvt2016, GoodEvt2017, GoodEvt2018;
   
   // Event counters:.
-  int nEvtTotal, nEvtRan, nEvtPass;
+  int nEvtTotal, nEvtRan, nEvtTrigger, nEvtPass;
 
   //Variables:
   float metpt, metphi; //Used to toggle between different kinds of MET

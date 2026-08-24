@@ -1,0 +1,144 @@
+# ==============================================================================
+# REANA SNAKEFILE
+#
+# For every DAS-backed sample in samples.json:
+#   1. process_file   - runs once per input file, so one bad file only
+#                        fails its own job, not the whole sample.
+#   2. merge_sample    - combines a sample's per-file histograms into the
+#                        single output file listed in samples.json.
+#   3. publish_to_eos  - copies every sample's merged output to EOS.
+# ==============================================================================
+
+workdir: "../"
+import os
+import glob
+import json
+
+CONTAINER            = "docker://reanahub/reana-env-root6:6.30.04"
+OUTPUT_DIR           = "outputs"
+TMP_DIR              = f"{OUTPUT_DIR}/tmp"
+SAMPLES_JSON         = "reana/samples.json"
+HTCONDOR_MAX_RUNTIME = "workday"
+
+## "eos_output_dir" comes from the parameters block in reana.yaml, and lands
+## here automatically in Snakemake's built-in config dict.
+EOS_OUTPUT_DIR = config["eos_output_dir"]
+
+if not os.path.isfile(SAMPLES_JSON):
+    raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
+
+with open(SAMPLES_JSON, "r") as f:
+    SAMPLES = json.load(f)
+
+# ------------------------------------------------------------------------------
+# Load the list of files belonging to each sample.
+# A "das" sample reads its files from the filelist prepare.py built (one
+# xrootd URL per line). Any other source is treated as a single local file,
+# leaving room for a source type other than "das" or "local" later.
+# ------------------------------------------------------------------------------
+def load_sample_files(key, config):
+    source = config.get("source", "local")
+    if source == "das":
+        filelist = config["filelist"]
+        if not os.path.isfile(filelist):
+            raise FileNotFoundError(
+                f"[ERROR] Filelist missing for sample '{key}': {filelist} "
+                "(run reana/prepare.py first)"
+            )
+        with open(filelist, "r") as f:
+            return [line.strip() for line in f if line.strip()]
+    return [config["input"]]
+
+SAMPLE_FILES = {}
+for key, config in SAMPLES.items():
+    SAMPLE_FILES[key] = load_sample_files(key, config)
+
+wildcard_constraints:
+    sample_key = "|".join(SAMPLES.keys()),
+    index      = r"\d+"
+
+## Expected per-file output paths, one list per sample
+PER_FILE_OUTPUTS = {}
+for key, files in SAMPLE_FILES.items():
+    PER_FILE_OUTPUTS[key] = [f"{TMP_DIR}/hst_{key}_{i}.root" for i in range(len(files))]
+
+## Reverse mapping: merged output file path -> sample key
+OUTPUT_MAP = {}
+for key, config in SAMPLES.items():
+    OUTPUT_MAP[config["output"]] = key
+
+ALL_MERGED_OUTPUTS = list(OUTPUT_MAP.keys())
+
+def get_sample_key(filename):
+    """Given a merged output filename, find which sample it belongs to."""
+    return OUTPUT_MAP[f"{OUTPUT_DIR}/{filename}"]
+
+rule all:
+    input:
+        f"{OUTPUT_DIR}/.published"
+
+# ------------------------------------------------------------------------------
+# process_file: one job per input file, dispatched to HTCondor. Requests a
+# grid proxy since reading a file from remote storage needs authorisation.
+# ------------------------------------------------------------------------------
+rule process_file:
+    input:
+        script      = "compile_and_run.C",
+        run_script  = "runOnce.C",
+        nano_script = "nanoAna.C",
+        nano_header = "nanoAna.h",
+        headers     = glob.glob("headers/*.h"),
+        models      = [f for f in glob.glob("trained_models/**", recursive=True) if os.path.isfile(f)]
+    output:
+        outfile = f"{TMP_DIR}/hst_{{sample_key}}_{{index}}.root"
+    params:
+        infile = lambda wildcards: SAMPLE_FILES[wildcards.sample_key][int(wildcards.index)],
+        era    = lambda wildcards: SAMPLES[wildcards.sample_key]["era"],
+        sample = lambda wildcards: SAMPLES[wildcards.sample_key]["sample"]
+    container:
+        CONTAINER
+    resources:
+        compute_backend      = "htcondorcern",
+        htcondor_max_runtime = HTCONDOR_MAX_RUNTIME,
+        voms_proxy           = True
+    shell:
+        "mkdir -p {TMP_DIR} && "
+        "root -l -b -q "
+        "'{input.script}("
+        '"{params.infile}", '
+        '"{output.outfile}", '
+        '"{params.era}", '
+        '"{params.sample}"'
+        ")'"
+
+# ------------------------------------------------------------------------------
+# merge_sample: combines a sample's per-file histograms into its final output.
+# ------------------------------------------------------------------------------
+rule merge_sample:
+    input:
+        lambda wildcards: PER_FILE_OUTPUTS[get_sample_key(wildcards.filename)]
+    output:
+        f"{OUTPUT_DIR}/{{filename}}"
+    container:
+        CONTAINER
+    shell:
+        "hadd -f {output} {input}"
+
+# ------------------------------------------------------------------------------
+# publish_to_eos: copies every merged output to EOS. Kerberos is requested
+# here, separately from the grid proxy above, since EOS writes are
+# authorised through Kerberos rather than a VOMS proxy.
+# ------------------------------------------------------------------------------
+rule publish_to_eos:
+    input:
+        ALL_MERGED_OUTPUTS
+    output:
+        touch(f"{OUTPUT_DIR}/.published")
+    container:
+        CONTAINER
+    resources:
+        kerberos = True
+    shell:
+        "mkdir -p {EOS_OUTPUT_DIR} && "
+        "cp {input} {EOS_OUTPUT_DIR}/"
+

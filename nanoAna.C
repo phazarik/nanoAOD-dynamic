@@ -70,6 +70,7 @@ void nanoAna::SlaveBegin(TTree *tree)
   nEvtTotal      = 0;
   nEvtRan        = 0;
   nEvtTrigger    = 0;
+  genEventSumW   = 0;
 
   // Constants:
   nEvtGen = tree->GetEntries(); 
@@ -105,20 +106,40 @@ void nanoAna::SlaveBegin(TTree *tree)
 }
 void nanoAna::SlaveTerminate()
 {
-  _HstFile->Write();
-  _HstFile->Close();
-
   // Display summary:
   cout<<"----------------------------------------"<<endl;
   cout<<"Total events ran  = "<<nEvtTotal<<endl;
   cout<<"Total good events = "<<nEvtRan<<endl;
   cout<<"Total HLT events = "<<nEvtTrigger<<endl;
+  if(_data==0) cout<<"Sum of generator weights = "<<fixed<<setprecision(2)<<genEventSumW<<endl;
 
+  /*
   //The following lines are written on the sum_<process name>.txt file
   ofstream fout(_SumFileName);
   fout<<"Total events ran  = "<<nEvtTotal<<endl;
   fout<<"Total good events = "<<nEvtRan<<endl;
-  fout<<"Total HLT events = "<<nEvtTrigger<<endl;
+  fout<<"Total HLT events = "<<nEvtTrigger<<endl;*/
+
+  //----------------------------------------------------------------
+  //Storing event information in a histogram:
+  // Navigate to the file's directory in ROOT memory before creating histograms
+  _HstFile->cd();
+  TH1D *hCount = new TH1D("hCount", "hCount;;", 3, 0.5, 3.5);
+  hCount->SetBinContent(1,nEvtTotal); //-> luminosity calculation
+  hCount->SetBinContent(2,nEvtRan);
+  hCount->SetBinContent(3,nEvtTrigger);
+  hCount->GetXaxis()->SetBinLabel(1,"nEvtGen");
+  hCount->GetXaxis()->SetBinLabel(2,"nEvtRan");
+  hCount->GetXaxis()->SetBinLabel(3,"nEvtTrigger");
+
+  TH1D *hWt = new TH1D("hWt", "hWt;;", 1, 0, 1);
+  hWt->SetBinContent(1,genEventSumW);
+  hWt->GetXaxis()->SetBinLabel(1,"genEventSumW"); //-> gen-level weights
+  //----------------------------------------------------------------
+
+  // Close the file AFTER writing everything
+  _HstFile->Write();
+  _HstFile->Close();
 
   // Print time taken:
   time(&end);
@@ -144,7 +165,11 @@ bool nanoAna::Process(Long64_t entry)
   // The following fReader can access both data and MC branches.
   // Any branch that is not in the ROOT file returns a default value.
   // (For example, gen-level branches in data.)
+  // MUST load the entry first before accessing ANY branch values!
   fReader.SetLocalEntry(entry);
+
+  // Count the sum of generator weights for later use.
+  if(_data==0) genEventSumW += (float) *Generator_weight;
 
   // Setting verbosity:
   if (nEvtTotal % _verbosity == 0) {
@@ -296,6 +321,14 @@ bool nanoAna::Process(Long64_t entry)
 	float HT = 0; for(int i=0; i<(int)RecoJet.size(); i++) HT += RecoJet.at(i).v.Pt();
 	float LT = RecoMu.at(0).v.Pt() + RecoMu.at(1).v.Pt();
 	float metpt = *PuppiMET_pt;
+
+	// Plot input variables:
+	h.dnn[0]->Fill(dilep_dphi);
+	h.dnn[1]->Fill(dilep_eta);
+	h.dnn[2]->Fill(dilep_ptratio);
+	h.dnn[3]->Fill(HT);
+	h.dnn[4]->Fill(LT);
+	h.dnn[5]->Fill(metpt);
 
 	// Evaluate score 1:
 	vector<float> invar_dy = {dilep_dphi, dilep_eta, dilep_ptratio, HT, LT, metpt}; //Maintain order

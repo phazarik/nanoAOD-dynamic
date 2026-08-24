@@ -317,6 +317,9 @@ void nanoAna::Init(TTree *tree)
   GenPart_pdgId.Init(tree, fReader, "GenPart_pdgId");
   GenPart_status.Init(tree, fReader, "GenPart_status");
 
+  // Initialize GenWeight
+  Generator_weight.Init(tree, fReader, {"Generator_weight", "genWeight"}, 1.0);
+
   // Initialize GenVisTau
   nGenVisTau.Init(tree, fReader, "nGenVisTau", 0);
   GenVisTau_eta.Init(tree, fReader, "GenVisTau_eta");

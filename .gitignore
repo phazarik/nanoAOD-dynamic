@@ -1,4 +1,7 @@
-## ROOT compiled files and dictionaries (ACLiC)
+# ============================================================
+# ROOT compiled files and dictionaries (ACLiC)
+# ============================================================
+
 *.so
 *.d
 *.pcm
@@ -7,24 +10,36 @@
 *_rdict.pcm
 *.rootmap
 
-## Data and output files
+## Data and analysis outputs
 *.root
+*.txt
 inputs/
 outputs/
-*.txt
 
-## Editor backups and temp files
+## REANA generated files
+reana/filelists/
+reana/.snakemake/
+reana/__pycache__/
+reana/*.log
+reana/*.out
+reana/*.err
+
+## Editor backups and temporary files
 *~
 *#
 *.swp
 *.swo
+.ipynb_checkpoints/
 .vscode/
 
-## Build and environment artifacts
+## Python and local environment artifacts
 __pycache__/
+*.pyc
+*.pyo
 .env
 
-## Do not ignore anything related to DNNs
+## ONNX runtime and trained models are intentionally tracked
 !onnxruntime*/
 !onnxruntime*/**
+!trained_models/
 !trained_models/**

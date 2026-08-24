@@ -51,8 +51,12 @@ void runOnce(
   for (int i = 0; i < chain->GetListOfFiles()->GetEntries(); i++)
     cout << "  - " << chain->GetListOfFiles()->At(i)->GetTitle() << endl;
   cout<<"\nThe following output files are being created:"<<endl;
-  cout<<"  - Hist file: "<<rootfile<<endl;
-  cout<<"  - Text file: "<<sumfile<<RESET<<endl;
+  cout<<"  - Hist file: "<<rootfile<<RESET<<endl;
+  //cout<<"  - Text file: "<<sumfile<<RESET<<endl;
+  
+  // Note: if summary file is needed,
+  // activate the following part in nanoAna.C:
+  // ofstream fout(_SumFileName); ...
 
   // Create a output path if needed:
   filesystem::path outputDir = filesystem::absolute(outfile.Data()).parent_path();

@@ -59,7 +59,7 @@ void compile_and_run(
     time_run.Stop();
     time_total.Stop();
     
-    cout << ">> Total runtime for this sample: " << fmt(time_total.RealTime()) << endl;
+    cout << ">> Total runtime for this sample: \033[34;1m" << fmt(time_total.RealTime()) <<"\033[0m"<< endl;
     cout << ">> File created: \033[33;1m"<< outfile <<"\033[0m\n"<< endl; 
 }
 

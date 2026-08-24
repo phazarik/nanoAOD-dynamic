@@ -379,6 +379,9 @@ public :
   DynamicArrayReader<int> GenPart_pdgId;
   DynamicArrayReader<int> GenPart_status;
 
+  //GenWeight
+  DynamicValueReader<float> Generator_weight;
+
   // GenVisTau
   DynamicValueReader<int> nGenVisTau;
   DynamicArrayReader<float> GenVisTau_eta;
@@ -453,6 +456,7 @@ public :
     //Histograms are declared here as a collection of vectors.
     //These need to be dynamicaly expanded in BookHistograms() function.
     vector<TH1F *> hist;
+    vector<TH1F *> dnn;
   };
   struct Particle {
     TLorentzVector v;
@@ -503,7 +507,7 @@ private:
   int nEvtTotal, nEvtRan, nEvtTrigger, nEvtPass;
 
   //Variables:
-  float metpt, metphi; //Used to toggle between different kinds of MET
+  float metpt, metphi, genEventSumW;
 
   // Time counters:
   time_t start, end, buffer;

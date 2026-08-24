@@ -13,16 +13,20 @@
 ## Data and analysis outputs
 *.root
 *.txt
+*.log
 inputs/
 outputs/
 
 ## REANA generated files
-reana/filelists/
 reana/.snakemake/
 reana/__pycache__/
 reana/*.log
 reana/*.out
 reana/*.err
+
+## Un-ignore the sample path so REANA can see inside it
+!reana/filelists/
+!reana/filelists/*.txt
 
 ## Editor backups and temporary files
 *~

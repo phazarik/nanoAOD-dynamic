@@ -1,7 +1,7 @@
 {
   "dyv12": {
     "dataset": "/DYto2L-4Jets_MLL-50_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
-    "filelist": "filelists/dyv12.txt",
+    "filelist": "reana/filelists/dyv12.txt",
     "output": "outputs/hst_DY_NanoAODv12.root",
     "era": "2022-postEE",
     "sample": "DYJetsToLL",
@@ -9,7 +9,7 @@
   },
   "muondata": {
     "dataset": "/Muon/Run2022D-22Sep2023-v1/NANOAOD",
-    "filelist": "filelists/muondata.txt",
+    "filelist": "reana/filelists/muondata.txt",
     "output": "outputs/hst_data_Muon_Run2022D.root",
     "era": "2022",
     "sample": "Muon_Run2022D",

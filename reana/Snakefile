@@ -1,122 +1,179 @@
-# ==============================================================================
-# REANA SNAKEFILE
+# ------------------------------------------------------------------------------
+# REANA SNAKEMAKE WORKFLOW
 #
-# For every DAS-backed sample in samples.json:
-#   1. process_file   - runs once per input file, so one bad file only
-#                        fails its own job, not the whole sample.
-#   2. merge_sample    - combines a sample's per-file histograms into the
-#                        single output file listed in samples.json.
-#   3. publish_to_eos  - copies every sample's merged output to EOS.
-# ==============================================================================
+# The workflow has three stages:
+#
+#   1. Process each NanoAOD input file independently on CERN HTCondor.
+#   2. Merge the per-file ROOT outputs for each sample.
+#   3. Copy the merged ROOT files to the configured EOS directory.
+#
+# The analysis jobs run inside the ROOT 6 container specified below.
+# ------------------------------------------------------------------------------
 
-workdir: "../"
 import os
 import glob
 import json
 
-CONTAINER            = "docker://reanahub/reana-env-root6:6.30.04"
-OUTPUT_DIR           = "outputs"
-TMP_DIR              = f"{OUTPUT_DIR}/tmp"
-SAMPLES_JSON         = "reana/samples.json"
+## Docker image used for all workflow steps.
+CONTAINER = "docker://reanahub/reana-env-root6:6.30.04"
+
+## Directory structure inside the REANA workspace.
+## Individual file outputs are kept in outputs/tmp until they are merged.
+OUTPUT_DIR = "outputs"
+TMP_DIR = f"{OUTPUT_DIR}/tmp"
+
+## Sample configuration and HTCondor runtime.
+SAMPLES_JSON = "reana/samples.json"
 HTCONDOR_MAX_RUNTIME = "workday"
 
-## "eos_output_dir" comes from the parameters block in reana.yaml, and lands
-## here automatically in Snakemake's built-in config dict.
-EOS_OUTPUT_DIR = config["eos_output_dir"]
-
-if not os.path.isfile(SAMPLES_JSON):
-    raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
-
-with open(SAMPLES_JSON, "r") as f:
-    SAMPLES = json.load(f)
+## EOS destination for the final merged ROOT files.
+## The value is supplied through reana.yaml.
+EOS_OUTPUT_DIR = config.get("eos_output_dir", "/tmp/default_fallback")
 
 # ------------------------------------------------------------------------------
-# Load the list of files belonging to each sample.
-# A "das" sample reads its files from the filelist prepare.py built (one
-# xrootd URL per line). Any other source is treated as a single local file,
-# leaving room for a source type other than "das" or "local" later.
+# Load sample configuration
+# samples.json contains the configuration for each sample, including:
+#   - input file or DAS filelist
+#   - data-taking era
+#   - sample name
+#   - output filename
+# For DAS samples, the filelist contains one XRootD URL per input NanoAOD file.
 # ------------------------------------------------------------------------------
-def load_sample_files(key, config):
-    source = config.get("source", "local")
+
+if not os.path.isfile(SAMPLES_JSON): raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
+with open(SAMPLES_JSON, "r") as f: SAMPLES = json.load(f)
+
+def load_sample_files(sample_key, sample_config):
+    source = sample_config.get("source", "local")
     if source == "das":
-        filelist = config["filelist"]
+        filelist = sample_config["filelist"]
         if not os.path.isfile(filelist):
-            raise FileNotFoundError(
-                f"[ERROR] Filelist missing for sample '{key}': {filelist} "
-                "(run reana/prepare.py first)"
-            )
+            raise FileNotFoundError(f"[ERROR] Missing filelist: {filelist}")
         with open(filelist, "r") as f:
             return [line.strip() for line in f if line.strip()]
-    return [config["input"]]
+    return [sample_config["input"]]
 
-SAMPLE_FILES = {}
-for key, config in SAMPLES.items():
-    SAMPLE_FILES[key] = load_sample_files(key, config)
+# ------------------------------------------------------------------------------
+# Build a dictionary containing all input files for every sample.
+# Example:
+#   SAMPLE_FILES["dyv12"] = [
+#       "root://cms-xrd-global.cern.ch//store/...",
+#       "root://cms-xrd-global.cern.ch//store/...",
+#       ...
+#   ]
+# ------------------------------------------------------------------------------
 
+SAMPLE_FILES = {
+    key: load_sample_files(key, sample_config)
+    for key, sample_config in SAMPLES.items()
+}
+
+## Restrict Snakemake wildcards to configured sample names and integer indices.
 wildcard_constraints:
     sample_key = "|".join(SAMPLES.keys()),
-    index      = r"\d+"
+    index = r"\d+"
 
-## Expected per-file output paths, one list per sample
+# ------------------------------------------------------------------------------
+# Define per-file outputs
+# Each input NanoAOD file is processed independently and produces one temporary
+# ROOT file. This allows the individual files to run in parallel on HTCondor.
+# ------------------------------------------------------------------------------
+
 PER_FILE_OUTPUTS = {}
 for key, files in SAMPLE_FILES.items():
-    PER_FILE_OUTPUTS[key] = [f"{TMP_DIR}/hst_{key}_{i}.root" for i in range(len(files))]
+    PER_FILE_OUTPUTS[key] = [
+        f"{TMP_DIR}/hst_{key}_{index}.root"
+        for index in range(len(files))
+    ]
 
-## Reverse mapping: merged output file path -> sample key
-OUTPUT_MAP = {}
-for key, config in SAMPLES.items():
-    OUTPUT_MAP[config["output"]] = key
+## Map each final output filename to its sample key.
+## This is used by merge_sample to determine which per-file outputs belong
+## to each sample.
 
+OUTPUT_MAP = {
+    sample_config["output"]: key
+    for key, sample_config in SAMPLES.items()
+}
 ALL_MERGED_OUTPUTS = list(OUTPUT_MAP.keys())
 
 def get_sample_key(filename):
-    """Given a merged output filename, find which sample it belongs to."""
+    ## Return the sample key corresponding to a final output filename.
     return OUTPUT_MAP[f"{OUTPUT_DIR}/{filename}"]
+
+# ------------------------------------------------------------------------------
+# Final workflow target
+# Snakemake considers the workflow complete when the .published marker exists.
+# The marker is created only after all samples have been processed, merged,
+# and successfully copied to EOS.
+# ------------------------------------------------------------------------------
 
 rule all:
     input:
         f"{OUTPUT_DIR}/.published"
 
 # ------------------------------------------------------------------------------
-# process_file: one job per input file, dispatched to HTCondor. Requests a
-# grid proxy since reading a file from remote storage needs authorisation.
+# Process individual NanoAOD files
+#
+# The job:
+#   1. Reads the sample configuration.
+#   2. Selects the appropriate input file.
+#   3. Runs compile_and_run.C.
+#   4. Produces one ROOT output file.
+#
+# Jobs are submitted to the CERN HTCondor backend. Kerberos authentication is
+# required for submitting to the CERN HTCondor cluster, while the VOMS proxy
+# allows the worker job to access CMS resources such as XRootD input files.
 # ------------------------------------------------------------------------------
+
 rule process_file:
     input:
-        script      = "compile_and_run.C",
-        run_script  = "runOnce.C",
-        nano_script = "nanoAna.C",
-        nano_header = "nanoAna.h",
-        headers     = glob.glob("headers/*.h"),
-        models      = [f for f in glob.glob("trained_models/**", recursive=True) if os.path.isfile(f)]
+        wrapper = "reana/runJob.py",
+        samples_json = SAMPLES_JSON,
+        filelists = [
+            sample_config["filelist"]
+            for sample_config in SAMPLES.values()
+            if sample_config.get("source") == "das"
+        ],
+        deps = [
+            "compile_and_run.C",
+            "runOnce.C",
+            "nanoAna.C",
+            "nanoAna.h"
+        ] + glob.glob("headers/*.h") + [
+            path
+            for path in glob.glob(
+                "trained_models/**",
+                recursive=True
+            )
+            if os.path.isfile(path)
+        ]
     output:
         outfile = f"{TMP_DIR}/hst_{{sample_key}}_{{index}}.root"
-    params:
-        infile = lambda wildcards: SAMPLE_FILES[wildcards.sample_key][int(wildcards.index)],
-        era    = lambda wildcards: SAMPLES[wildcards.sample_key]["era"],
-        sample = lambda wildcards: SAMPLES[wildcards.sample_key]["sample"]
     container:
         CONTAINER
     resources:
-        compute_backend      = "htcondorcern",
+        compute_backend = "htcondorcern",
         htcondor_max_runtime = HTCONDOR_MAX_RUNTIME,
-        voms_proxy           = True
+        kerberos = True,
+        voms_proxy = True
     shell:
         "mkdir -p {TMP_DIR} && "
-        "root -l -b -q "
-        "'{input.script}("
-        '"{params.infile}", '
-        '"{output.outfile}", '
-        '"{params.era}", '
-        '"{params.sample}"'
-        ")'"
+        "python3 {input.wrapper} "
+        "{wildcards.sample_key} "
+        "{wildcards.index} "
+        "{output.outfile}"
 
 # ------------------------------------------------------------------------------
-# merge_sample: combines a sample's per-file histograms into its final output.
+# Merge outputs for each sample
+# Once all input files belonging to a sample have been processed, hadd combines
+# their temporary ROOT files into a single ROOT file.
 # ------------------------------------------------------------------------------
+
 rule merge_sample:
     input:
-        lambda wildcards: PER_FILE_OUTPUTS[get_sample_key(wildcards.filename)]
+        lambda wildcards: PER_FILE_OUTPUTS[
+            get_sample_key(wildcards.filename)
+        ]
     output:
         f"{OUTPUT_DIR}/{{filename}}"
     container:
@@ -125,10 +182,13 @@ rule merge_sample:
         "hadd -f {output} {input}"
 
 # ------------------------------------------------------------------------------
-# publish_to_eos: copies every merged output to EOS. Kerberos is requested
-# here, separately from the grid proxy above, since EOS writes are
-# authorised through Kerberos rather than a VOMS proxy.
+# Publish merged outputs to EOS
+# This step runs only after all samples have been processed and merged.
+# Kerberos authentication is required to access the CERN EOS filesystem.
+# The .published marker is created only if the copy command completes
+# successfully.
 # ------------------------------------------------------------------------------
+
 rule publish_to_eos:
     input:
         ALL_MERGED_OUTPUTS

@@ -16,7 +16,7 @@ junk = [
     "*.pcm",
     "*_ACLiC_*",
     "headers/*~",
-    "reana/*~"
+    "reana/*~",
 ]
 ## --all cleanup: Output ROOT files and text summaries
 if args.all:

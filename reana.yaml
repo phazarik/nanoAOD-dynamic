@@ -1,0 +1,35 @@
+# ------------------------------------------------------------------------------
+# REANA WORKFLOW CONFIGURATION
+# The workflow definition and supporting configuration files are stored in reana/.
+# Analysis source files, headers, models, and input file lists are included as
+# workflow inputs so they are available when the analysis runs on REANA.
+# ------------------------------------------------------------------------------
+
+version: 0.9.0
+
+inputs:
+  files:
+    - reana/Snakefile
+    - reana/samples.json
+    - reana/runJob.py
+    - compile_and_run.C
+    - runOnce.C
+    - nanoAna.C
+    - nanoAna.h
+  directories:
+    - headers
+    - onnxruntime-linux-x64-1.24.4
+    - trained_models
+    - reana/filelists 
+
+  parameters:
+    eos_output_dir: /eos/user/p/phazarik/reana-test
+
+workflow:
+  type: snakemake
+  file: reana/Snakefile
+
+outputs:
+  directories:
+    - outputs
+

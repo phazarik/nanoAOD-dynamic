@@ -9,22 +9,27 @@ More information on CRAB is available in the [CRAB documentation](https://cmscra
 Instead of processing a large NanoAOD dataset directly on lxplus, CRAB splits the dataset into smaller jobs. In the current setup, each job processes exactly one NanoAOD ROOT file, allowing the files to be processed independently and in parallel. The basic workflow is as follows.
 ```text
 DAS dataset
-v
+     v
 CRAB splits into files
-|
-+---- file1.root -> job 1
-+---- file2.root -> job 2
-+---- file3.root -> job 3
-+---- ...
-v
+     |
+     +---- file1.root -> job 1
+     +---- file2.root -> job 2
+     +---- file3.root -> job 3
+     +---- ...
+     v
 output.root files
 ```
 Each worker runs the same analysis code with a different input file. Once a job finishes, the resulting `output.root` file is transferred to the configured EOS storage area.
 
-the configuration CRAB crab_script.sh  # runs on the remote worker node and executes C.
+## How it works
 
-compile_and_run samples.json    # contains the datasets and settings 
-analysis submitJobs.py   # reads the DAS samples and submits the CRAB jobs
+```text
+CRAB/
+├── PSet.py
+├── crab_config.py  # contains the CRAB configuration
+├── crab_script.sh  # runs on the remote worker node and executes compile_and_run.C
+├── samples.json    # contains the datasets and analysis settings
+└── submitJobs.py   # reads the DAS samples and submits the CRAB jobs
 ```
 
 <p align="center"> <img src="../.github/images/crab.png" alt="CRAB Workflow"> </p>
@@ -37,10 +42,10 @@ The `samples.json` file is the main place where the datasets are configured. The
 ```python
 {
   "dyv12": { # becomes the job identifier
-      "dataset": "/DYto2L-4Jets_MLL-50_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
-      "era": "2022-postEE",   # passed to era in the analysis _setup, which also sets _year
-      "sample": "DYJetsToLL", # passed to sample in the analysis _setup, which also sets _data
-      "outdir": "DYto2L"      # sub-directory in EOS
+    "dataset": "/DYto2L-4Jets_MLL-50_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+    "era": "2022-postEE",   # passed to era in the analysis _setup, which also sets _year
+    "sample": "DYJetsToLL", # passed to sample in the analysis _setup, which also sets _data
+    "outdir": "DYto2L"      # sub-directory in EOS
   }
 }
 ```
@@ -167,7 +172,6 @@ process.maxEvents = cms.untracked.PSet(input=cms.untracked.int32(-1))
 process.source = cms.Source("PoolSource", fileNames=cms.untracked.vstring())
 ```
 Here, `cms.Process("NANO")` defines a minimal CMSSW process, while `maxEvents = -1` allows all events in the input file to be processed. The `PoolSource` defines the input ROOT files, but the `fileNames` list is initially empty.  CRAB fills `process.source.fileNames` with the NanoAOD file assigned to each job. `crab_script.sh` then reads this list and passes the input filename to `compile_and_run.C`. `PSet.py` does not contain any analysis logic in this setup. It is only used to provide the CMSSW configuration expected by CRAB and to make the job's input file available to `crab_script.sh`.
-
 
 ## Monitoring and managing jobs
 

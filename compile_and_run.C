@@ -18,7 +18,7 @@ void compile_and_run(
     //ANSI color codes:
     TString RED    = "\033[31m";
     TString RESET  = "\033[0m";
-    
+
     // Explicitly load necessary ROOT libraries before compiling
     cout << "\n>> Loading libraries ..." << endl;
     gSystem->Load("libTree");
@@ -29,19 +29,34 @@ void compile_and_run(
     // Setup DNN libraries with RPATH and include paths
     TString onnxdir = scriptPath + "/onnxruntime-linux-x64-1.24.4";
     gSystem->AddIncludePath(Form("-I%s/include", onnxdir.Data()));
-    
+
     // Bake the library directory directly into the compiled object via rpath
-    gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so", onnxdir.Data(), onnxdir.Data()));
-    if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so") < 0) {
+    //gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so", onnxdir.Data(), onnxdir.Data()));
+    //if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so") < 0) {
+    //cerr << RED << "[ERROR] Could not find libonnxruntime.so!" << RESET << endl;
+    //    return;
+    //}
+    
+    gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so.1.24.4", onnxdir.Data(), onnxdir.Data()));
+    if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so.1.24.4") < 0) {
       cerr << RED << "[ERROR] Could not find libonnxruntime.so!" << RESET << endl;
-        return;
+      return;
     }
+
+    // -------------------------------------------------------------------------
+    // ROOT ACLiC ISOLATION (Fix for HTCondor parallel job collisions)
+    // -------------------------------------------------------------------------
+    TString buildDir = Form("/tmp/aclic_%d", gSystem->GetPid());
+    gSystem->SetBuildDir(buildDir.Data(), true); // true = create if it doesn't exist
 
     // Compile the source code:
     TStopwatch time_compile, time_run, time_total;
     time_compile.Start(); time_total.Start();
-    cout << ">> Compiling the source code ..." << endl;
-    if (gSystem->CompileMacro("nanoAna.C", "kO") == 0) {
+    cout << ">> Compiling the source code in " << buildDir << " ..." << endl;
+    
+    // Changed "kO" (Overwrite) to "k" (Keep/compile if changed) to save time
+    // if ROOT decides to reuse the dictionary in the same session.
+    if (gSystem->CompileMacro("nanoAna.C", "k") == 0) {
       cerr << RED << "[ERROR] Compilation of nanoAna.C failed!" << RESET << endl;
         return;
     }
@@ -51,16 +66,16 @@ void compile_and_run(
     //  Run runOnce.C:
     time_run.Start();
     cout << ">> Running runOnce.C ..." << endl;
-    
+
     // Pass string arguments safely using quotes inside Form
-    gROOT->ProcessLine(Form(".x runOnce.C(\"%s\", \"%s\", \"%s\", \"%s\")", 
+    gROOT->ProcessLine(Form(".x runOnce.C(\"%s\", \"%s\", \"%s\", \"%s\")",
                             infile.Data(), outfile.Data(), era.Data(), sample.Data()));
-    
+
     time_run.Stop();
     time_total.Stop();
-    
+
     cout << ">> Total runtime for this sample: \033[34;1m" << fmt(time_total.RealTime()) <<"\033[0m"<< endl;
-    cout << ">> File created: \033[33;1m"<< outfile <<"\033[0m\n"<< endl; 
+    cout << ">> File created: \033[33;1m"<< outfile <<"\033[0m\n"<< endl;
 }
 
 string fmt(double t) {

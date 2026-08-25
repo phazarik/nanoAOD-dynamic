@@ -1,10 +1,10 @@
 # ------------------------------------------------------------------------------
-# REANA SNAKEMAKE WORKFLOW
+# REANA SNAKEMAKE WORKFLOW (Chunked Edition)
 #
 # The workflow has three stages:
 #
-#   1. Process each NanoAOD input file independently on CERN HTCondor.
-#   2. Merge the per-file ROOT outputs for each sample.
+#   1. Process NanoAOD input files in chunks on CERN HTCondor.
+#   2. Merge the per-chunk ROOT outputs for each sample.
 #   3. Copy the merged ROOT files to the configured EOS directory.
 #
 # The analysis jobs run inside the ROOT 6 container specified below.
@@ -13,22 +13,27 @@
 import os
 import glob
 import json
+import math
 
-## Docker image used for all workflow steps.
+# Docker image used for all workflow steps.
 CONTAINER = "docker://reanahub/reana-env-root6:6.30.04"
 
-## Directory structure inside the REANA workspace.
-## Individual file outputs are kept in outputs/tmp until they are merged.
+# Directory structure inside the REANA workspace.
+# Individual chunk outputs are kept in outputs/tmp until they are merged.
 OUTPUT_DIR = "outputs"
 TMP_DIR = f"{OUTPUT_DIR}/tmp"
 
-## Sample configuration and HTCondor runtime.
+# Sample configuration and HTCondor runtime.
 SAMPLES_JSON = "reana/samples.json"
 HTCONDOR_MAX_RUNTIME = "workday"
 
-## EOS destination for the final merged ROOT files.
-## The value is supplied through reana.yaml.
+# EOS destination for the final merged ROOT files.
+# The value is supplied through reana.yaml.
 EOS_OUTPUT_DIR = config.get("eos_output_dir", "/tmp/default_fallback")
+
+# Set how many input NanoAOD files to process per HTCondor job.
+# This prevents DDoS-ing the REANA scheduler and reduces job startup overhead.
+CHUNK_SIZE = 50
 
 # ------------------------------------------------------------------------------
 # Load sample configuration
@@ -40,8 +45,10 @@ EOS_OUTPUT_DIR = config.get("eos_output_dir", "/tmp/default_fallback")
 # For DAS samples, the filelist contains one XRootD URL per input NanoAOD file.
 # ------------------------------------------------------------------------------
 
-if not os.path.isfile(SAMPLES_JSON): raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
-with open(SAMPLES_JSON, "r") as f: SAMPLES = json.load(f)
+if not os.path.isfile(SAMPLES_JSON):
+    raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
+with open(SAMPLES_JSON, "r") as f:
+    SAMPLES = json.load(f)
 
 def load_sample_files(sample_key, sample_config):
     source = sample_config.get("source", "local")
@@ -53,43 +60,39 @@ def load_sample_files(sample_key, sample_config):
             return [line.strip() for line in f if line.strip()]
     return [sample_config["input"]]
 
-# ------------------------------------------------------------------------------
 # Build a dictionary containing all input files for every sample.
-# Example:
-#   SAMPLE_FILES["dyv12"] = [
-#       "root://cms-xrd-global.cern.ch//store/...",
-#       "root://cms-xrd-global.cern.ch//store/...",
-#       ...
-#   ]
-# ------------------------------------------------------------------------------
-
 SAMPLE_FILES = {
     key: load_sample_files(key, sample_config)
     for key, sample_config in SAMPLES.items()
 }
 
-## Restrict Snakemake wildcards to configured sample names and integer indices.
+# Calculate the number of chunks required for each sample
+SAMPLE_CHUNKS = {
+    key: math.ceil(len(files) / CHUNK_SIZE)
+    for key, files in SAMPLE_FILES.items()
+}
+
+# Restrict Snakemake wildcards to configured sample names and integer indices.
 wildcard_constraints:
     sample_key = "|".join(SAMPLES.keys()),
-    index = r"\d+"
+    chunk_index = r"\d+"
 
 # ------------------------------------------------------------------------------
-# Define per-file outputs
-# Each input NanoAOD file is processed independently and produces one temporary
-# ROOT file. This allows the individual files to run in parallel on HTCondor.
+# Define per-chunk outputs
+# Instead of one job per file, we now have one job per chunk.
+# This produces one temporary ROOT file per chunk.
 # ------------------------------------------------------------------------------
 
-PER_FILE_OUTPUTS = {}
-for key, files in SAMPLE_FILES.items():
-    PER_FILE_OUTPUTS[key] = [
-        f"{TMP_DIR}/hst_{key}_{index}.root"
-        for index in range(len(files))
+PER_CHUNK_OUTPUTS = {}
+for key, num_chunks in SAMPLE_CHUNKS.items():
+    PER_CHUNK_OUTPUTS[key] = [
+        f"{TMP_DIR}/hst_{key}_chunk{i}.root"
+        for i in range(num_chunks)
     ]
 
-## Map each final output filename to its sample key.
-## This is used by merge_sample to determine which per-file outputs belong
-## to each sample.
-
+# Map each final output filename to its sample key.
+# This is used by merge_sample to determine which per-chunk outputs belong
+# to each sample.
 OUTPUT_MAP = {
     sample_config["output"]: key
     for key, sample_config in SAMPLES.items()
@@ -97,7 +100,7 @@ OUTPUT_MAP = {
 ALL_MERGED_OUTPUTS = list(OUTPUT_MAP.keys())
 
 def get_sample_key(filename):
-    ## Return the sample key corresponding to a final output filename.
+    # Return the sample key corresponding to a final output filename.
     return OUTPUT_MAP[f"{OUTPUT_DIR}/{filename}"]
 
 # ------------------------------------------------------------------------------
@@ -112,20 +115,20 @@ rule all:
         f"{OUTPUT_DIR}/.published"
 
 # ------------------------------------------------------------------------------
-# Process individual NanoAOD files
+# Process chunks of NanoAOD files
 #
 # The job:
 #   1. Reads the sample configuration.
-#   2. Selects the appropriate input file.
-#   3. Runs compile_and_run.C.
-#   4. Produces one ROOT output file.
+#   2. Selects the appropriate CHUNK of input files.
+#   3. Runs compile_and_run.C for each file in the chunk.
+#   4. Merges them internally to produce one ROOT output file for the chunk.
 #
 # Jobs are submitted to the CERN HTCondor backend. Kerberos authentication is
 # required for submitting to the CERN HTCondor cluster, while the VOMS proxy
 # allows the worker job to access CMS resources such as XRootD input files.
 # ------------------------------------------------------------------------------
 
-rule process_file:
+rule process_chunk:
     input:
         wrapper = "reana/runJob.py",
         samples_json = SAMPLES_JSON,
@@ -140,15 +143,11 @@ rule process_file:
             "nanoAna.C",
             "nanoAna.h"
         ] + glob.glob("headers/*.h") + [
-            path
-            for path in glob.glob(
-                "trained_models/**",
-                recursive=True
-            )
+            path for path in glob.glob("trained_models/**", recursive=True)
             if os.path.isfile(path)
         ]
     output:
-        outfile = f"{TMP_DIR}/hst_{{sample_key}}_{{index}}.root"
+        outfile = f"{TMP_DIR}/hst_{{sample_key}}_chunk{{chunk_index}}.root"
     container:
         CONTAINER
     resources:
@@ -158,20 +157,24 @@ rule process_file:
         voms_proxy = True
     shell:
         "mkdir -p {TMP_DIR} && "
-        "python3 {input.wrapper} "
+        "export XRD_NETWORKTIMEOUT=60 &&"
+        "export XRD_CONNECTIONRETRY=2 && "
+        "export XRD_REQUESTTIMEOUT=60 && "
+        "python3 -u {input.wrapper} "
         "{wildcards.sample_key} "
-        "{wildcards.index} "
+        "{wildcards.chunk_index} "
+        "{CHUNK_SIZE} "
         "{output.outfile}"
 
 # ------------------------------------------------------------------------------
 # Merge outputs for each sample
-# Once all input files belonging to a sample have been processed, hadd combines
+# Once all chunks belonging to a sample have been processed, hadd combines
 # their temporary ROOT files into a single ROOT file.
 # ------------------------------------------------------------------------------
 
 rule merge_sample:
     input:
-        lambda wildcards: PER_FILE_OUTPUTS[
+        lambda wildcards: PER_CHUNK_OUTPUTS[
             get_sample_key(wildcards.filename)
         ]
     output:

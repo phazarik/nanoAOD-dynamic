@@ -17,6 +17,8 @@ junk = [
     "*_ACLiC_*",
     "headers/*~",
     "reana/*~",
+    "CRAB/*~",
+    "CRAB/__pycache__"
 ]
 ## --all cleanup: Output ROOT files and text summaries
 if args.all:
@@ -24,7 +26,8 @@ if args.all:
         "outputs/*.root",
         "outputs/*.txt",
         "*.root",
-        "*.txt"
+        "*.txt",
+        "CRAB/*tar.gz"
     ]
 
 for f in junk:

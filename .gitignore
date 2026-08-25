@@ -14,6 +14,7 @@
 *.root
 *.txt
 *.log
+*.tar.gz
 inputs/
 outputs/
 
@@ -35,6 +36,9 @@ reana/*.err
 *.swo
 .ipynb_checkpoints/
 .vscode/
+
+## CRAB generated files
+CRAB/submitted/
 
 ## Python and local environment artifacts
 __pycache__/

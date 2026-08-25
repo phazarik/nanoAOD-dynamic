@@ -171,7 +171,7 @@ def check_status_all_jobs(submitted_dir):
               f"{job_info['submitted_total']:<8} {job_info['unsubmitted']:<8} "
               f"{idle_colored} {run_colored} {trans_colored} {fin_colored} {fail_colored}")
 
-    with open("jobIDs.json", "w") as f: json.dump(jobid_dict, f, indent=4)
+    ## with open("jobIDs.json", "w") as f: json.dump(jobid_dict, f, indent=4)
     elapsed = time.time() - start_time
 
     ## Resubmit failed jobs

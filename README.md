@@ -1,13 +1,13 @@
 # NanoAOD analysis template using dynamic typecasting
 
-![C++](https://img.shields.io/badge/C%2B%2B-17-blue?style=flat-square) ![ROOT](https://img.shields.io/badge/ROOT-6.26%2B-2c8?style=flat-square) ![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-1.24.4-orange?style=flat-square)
+![C++](https://img.shields.io/badge/C%2B%2B-17+-blue?style=flat-square) ![ROOT](https://img.shields.io/badge/ROOT-6.26%2B-2c8?style=flat-square) ![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-1.24.4-orange?style=flat-square) ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square) ![Snakemake](https://img.shields.io/badge/Snakemake-Workflow-brightgreen?style=flat-square) 
 
 *One `fReader` to read them all,*  <br>
 *One `fReader` to bind them,*  <br>
 *Dynamic casting to handle them all,* <br> 
 *And through the branches, find them.* 
 
-The world of NanoAOD is ever changing. Much has happened since the earlier productions, and with Run 3, many things have been altered.
+The world of NanoAOD is ever-changing. Much has happened since the earlier productions, and with Run 3, many things have been altered.
 
 It began with the introduction of NanoAODv15. Data types changed, branch names were altered, and what once worked may no longer survive. Deep within the analysis framework, ROOT's strictly typed `TTreeReaderValue` and `TTreeReaderArray` expect the branches they read to match their declared types. Even seemingly small changes between productions can therefore break an analysis. In the C++/ROOT `MakeSelector`-style framework, adapting to a new NanoAOD version often meant manually changing the generated source code to match the new branch types and names, followed by recompilation.
 
@@ -19,10 +19,13 @@ But there is another way. This template uses **dynamic typecasting** to adapt to
 
 - **Plug-and-play ONNX:** Includes a pre-compiled ONNX Runtime library with the required paths already configured, avoiding the need to build ONNX Runtime from source or deal with additional environment setup.
 
+-  **Batch processing & automated pipelines:** Includes scripts to submit and manage large-scale jobs on the CMS grid via [**`CRAB/`**](./CRAB), as well as a Snakemake pipeline setup for running automated, reproducible workflows on [**`reana/`**](./reana).
+
 > For more details on the C++ API, check out the [official ONNX Runtime documentation](https://onnxruntime.ai/docs/).<br>
 > **For users outside the CMS Collaboration:** NanoAOD samples are available through the [CERN Open Data Portal](https://opendata.cern.ch/docs/cms-getting-started-nanoaod).
 
 ## Structure
+Here is how the `TSelector` based analysis framework is organized. Ignore the CRAB and REANA related directories for now.
 ```bash
 ├── nanoAna.C            # Source code containing the analysis logic
 ├── nanoAna.h            # Primary header containing the analyzer class
@@ -33,8 +36,6 @@ But there is another way. This template uses **dynamic typecasting** to adapt to
 │   └── Init.h              # -> Initializes the branch variables from input file
 ├── onnxruntime-linux-x64-1.24.4    # Library for DNN compatibility
 ├── trained_models       # Trained DNNs and input scaling parameters
-├── inputs
-├── outputs
 ├── runOnce.C            # Driver that runs the compiled setup.
 ├── compile_and_run.C    # Wrapper around the driver; handles library loading and compilation
 └── runAll.py            # Python script that runs compile_and_run on all input samples
@@ -127,6 +128,28 @@ fixedGridRhoFastjetAll.Init(tree,fReader,{"Rho_fixedGridRhoFastjetAll","fixedGri
 	```cpp
 	LHEWeight_originalXWGTUP.Init(tree, fReader, "LHEWeight_originalXWGTUP", 1.0);
 	```
+
+## Scaling to distributed systems
+
+Running things locally on `lxplus` works well for quick tests and debugging, but processing full datasets across multiple eras requires distributed computing.
+
+This repository includes setups for two workflows: **CRAB** for running over CMS datasets on the Grid and **REANA** for automated analysis pipelines using Snakemake.
+
+```text
+├── CRAB/                   # CMS grid submission scripts and job management
+├── reana/                  # Automated pipeline definitions (Snakemake)
+└── reana.yaml              # REANA workflow specification
+```
+
+### CRAB
+
+CRAB is meant for parallel processing over large numbers of NanoAOD files registered in CMS DAS. It distributes independent jobs across the Grid, where each job processes a single ROOT file directly via XRootD. The included scripts automatically package the C++ analyzer, headers, and ONNX models into a tarball sandbox, submit the jobs, and transfer the output ROOT files directly to EOS storage. For details on the configurations, dataset settings, proxy setup, and job management commands, see the [CRAB README](CRAB/README.md).
+
+### REANA
+
+REANA is designed for reproducible workflows and automated execution on CERN compute clusters. It runs the end-to-end analysis chain, starting with processing file chunks on HTCondor, to merging histograms and saving final outputs; all within a single workflow definition. Snakemake handles job dependencies, queries DAS for input files, runs the analyzer on HTCondor workers, merges the resulting ROOT files with `hadd`, and copies the final histograms to EOS using Kerberos authentication. For details on token configurations, Kerberos keytab setup, and workflow submission, see the [REANA README](reana/README.md).
+
+> **Warning:** CRAB and REANA require completely separate environments. CRAB needs a CMSSW environment (via `cmsenv`) for its client tools and dependencies, while REANA runs inside its own dedicated virtual environment. Mixing these two, such as running `cmsenv` after activating the REANA environment, will corrupt Python and system paths, leading to hard-to-debug crashes. Always use a clean terminal session when switching between CRAB and REANA.
 ---
 I hope this template is useful for anyone working with NanoAOD across different production campaigns. The main goal is to make the analysis framework more flexible and reduce the amount of version-specific code needed when branch names or data types change.
 

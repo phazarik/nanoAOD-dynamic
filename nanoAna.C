@@ -36,10 +36,6 @@ void nanoAna::Begin(TTree * /*tree*/)
 }
 void nanoAna::SlaveBegin(TTree *tree)
 {
-  // Before SlaveBegin runs, make sure to provide the following in ana.C
-  // _data using SetData();
-  // _era using SetEra() -> This will automatically set _year;
-
   //------------------------------------------------------------------
   // Note on _era (TString):
   // Make sure to use the same naming convention for _era.
@@ -63,7 +59,7 @@ void nanoAna::SlaveBegin(TTree *tree)
 
   cout<<"Input parameters:"<<endl;
   cout<<"Data = "<< _data << " (0=MC, 1=Data)" <<endl;
-  cout<<"Year = "<<_year<<endl; 
+  cout<<"Year = "<<_year<<endl;
 
   // Initialization of the counters:
   time(&start);
@@ -75,6 +71,7 @@ void nanoAna::SlaveBegin(TTree *tree)
   // Constants:
   nEvtGen = tree->GetEntries(); 
   test_event = 100;
+  cout << ">> Total tree entries: " << nEvtGen << endl;
   
   // Create a TFile to write on.
   // Call any other function that does any kind of initialization of objects/variables.
@@ -86,15 +83,18 @@ void nanoAna::SlaveBegin(TTree *tree)
 
   // One environment to rule them all
   ort_env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "MultiDNN_Inference");
+  cout << ">> Initialized ONNX environment." << endl;
   Ort::SessionOptions session_options;
   session_options.SetIntraOpNumThreads(1);
     
-  // Load model for DY-vs-VLLD:
+  // Load the DNN model for DY-vs-VLLD:
   TString path_dy = "trained_models/DY-vs-VLLD_Run3_Feb19/";
   session_dy = new Ort::Session(*ort_env, (path_dy + "model_DY-vs-VLLD_Run3_Feb19.onnx").Data(), session_options);
+  cout << ">> Loaded the DNN model for DY-vs-VLLD." << endl;
   scale_min_dy = loadScalingParameters((path_dy + "scaling_parameters_min.txt").Data());
   scale_max_dy = loadScalingParameters((path_dy + "scaling_parameters_max.txt").Data());
-
+  cout << ">> Loaded the scaling parameters for DY-vs-VLLD." << endl;
+  
   // Similarly load other models ...
   //-----------------------------------------------------------------------------------
 

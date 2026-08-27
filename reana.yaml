@@ -1,16 +1,21 @@
 # ------------------------------------------------------------------------------
 # REANA WORKFLOW CONFIGURATION
 # The workflow definition and supporting configuration files are stored in reana/.
-# Analysis source files, headers, models, and input file lists are included as
-# workflow inputs so they are available when the analysis runs on REANA.
+# Analysis source files, headers, models, and per-sample JSON files are included
+# as workflow inputs so they are available when the analysis runs on REANA.
+#
+# Note: reana/samples.json is intentionally NOT listed as an input. It is only
+# used locally by reana/prepare.py to generate the per-sample JSON files under
+# reana/samples/, which are what the workflow actually reads. This keeps the
+# REANA-side workflow fully decoupled from samples.json.
 # ------------------------------------------------------------------------------
 
 version: 0.9.0
 
 inputs:
   files:
+    - proxy.pem
     - reana/Snakefile
-    - reana/samples.json
     - reana/runJob.py
     - compile_and_run.C
     - runOnce.C
@@ -20,7 +25,7 @@ inputs:
     - headers
     - onnxruntime-linux-x64-1.24.4
     - trained_models
-    - reana/filelists 
+    - reana/samples
 
   parameters:
     eos_output_dir: /eos/user/p/phazarik/reana-test
@@ -32,4 +37,3 @@ workflow:
 outputs:
   directories:
     - outputs
-

@@ -25,6 +25,9 @@ reana/*.log
 reana/*.out
 reana/*.err
 
+## Grid certificate copy
+*.pem
+
 ## Un-ignore the sample path so REANA can see inside it
 !reana/filelists/
 !reana/filelists/*.txt

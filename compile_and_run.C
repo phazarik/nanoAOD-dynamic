@@ -31,14 +31,9 @@ void compile_and_run(
     gSystem->AddIncludePath(Form("-I%s/include", onnxdir.Data()));
 
     // Bake the library directory directly into the compiled object via rpath
-    //gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so", onnxdir.Data(), onnxdir.Data()));
-    //if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so") < 0) {
-    //cerr << RED << "[ERROR] Could not find libonnxruntime.so!" << RESET << endl;
-    //    return;
-    //}
-    
-    gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so.1.24.4", onnxdir.Data(), onnxdir.Data()));
-    if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so.1.24.4") < 0) {
+    // Use the standard .so link in REANA, since the python wrapper runJob.py rebuilds it
+    gSystem->AddLinkedLibs(Form("-Wl,-rpath,%s/lib %s/lib/libonnxruntime.so", onnxdir.Data(), onnxdir.Data()));
+    if (gSystem->Load(onnxdir + "/lib/libonnxruntime.so") < 0) {
       cerr << RED << "[ERROR] Could not find libonnxruntime.so!" << RESET << endl;
       return;
     }

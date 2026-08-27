@@ -8,6 +8,16 @@
 #   3. Copy the merged ROOT files to the configured EOS directory.
 #
 # The analysis jobs run inside the ROOT 6 container specified below.
+#
+# Samples are no longer read from a single samples.json. Instead, every
+# *.json file under reana/samples/ describes one sample: its full list of
+# input files plus its processing parameters (era, sample name, output
+# filename). The sample key is simply the file's basename (e.g. dyv12.json
+# defines the sample "dyv12"). Adding, removing, or editing a sample - or
+# creating a small test_sample.json for quick debugging - is just a matter
+# of editing files in that directory; nothing else in the workflow needs to
+# change. See reana/prepare.py for how the real sample files are generated
+# from DAS.
 # ------------------------------------------------------------------------------
 
 import os
@@ -16,15 +26,25 @@ import json
 import math
 
 # Docker image used for all workflow steps.
-CONTAINER = "docker://reanahub/reana-env-root6:6.30.04"
+# NOTE: 6.30.04 does not exist on Docker Hub (confirmed via the registry's
+# tag list) - jobs referencing it will loop forever between "held" (hold
+# code 35, InvalidDockerImage) and "released" without ever running any
+# actual code. 6.38.00 is the current published tag; 6.18.04 is the older
+# one used in most REANA/ROOT6 examples if 6.38.00 turns out to be missing
+# something the analysis relies on.
+CONTAINER = "docker://reanahub/reana-env-root6:6.38.00"
 
 # Directory structure inside the REANA workspace.
 # Individual chunk outputs are kept in outputs/tmp until they are merged.
 OUTPUT_DIR = "outputs"
 TMP_DIR = f"{OUTPUT_DIR}/tmp"
 
-# Sample configuration and HTCondor runtime.
-SAMPLES_JSON = "reana/samples.json"
+# Directory containing one self-contained JSON file per sample (files +
+# parameters). See reana/prepare.py for how these are generated from DAS,
+# or write one by hand (e.g. test_sample.json) for a quick local test.
+SAMPLES_DIR = "reana/samples"
+
+# HTCondor runtime flavour used for all process_chunk jobs.
 HTCONDOR_MAX_RUNTIME = "workday"
 
 # EOS destination for the final merged ROOT files.
@@ -33,53 +53,50 @@ EOS_OUTPUT_DIR = config.get("eos_output_dir", "/tmp/default_fallback")
 
 # Set how many input NanoAOD files to process per HTCondor job.
 # This prevents DDoS-ing the REANA scheduler and reduces job startup overhead.
-CHUNK_SIZE = 50
+CHUNK_SIZE = 1
 
 # ------------------------------------------------------------------------------
-# Load sample configuration
-# samples.json contains the configuration for each sample, including:
-#   - input file or DAS filelist
-#   - data-taking era
-#   - sample name
-#   - output filename
-# For DAS samples, the filelist contains one XRootD URL per input NanoAOD file.
+# Discover samples
+# Every *.json file under SAMPLES_DIR describes one sample and has the form:
+#   {
+#     "files": ["root://.../a.root", "root://.../b.root", ...],
+#     "parameters": {"sample": "...", "era": "...", "output": "outputs/..."}
+#   }
+# Entries in "files" starting with "root://" are read remotely via XRootD
+# (e.g. from DAS); anything else is treated as a local path, which must be
+# included in the REANA workspace via reana.yaml's inputs section so it is
+# actually present when the job runs.
 # ------------------------------------------------------------------------------
 
-if not os.path.isfile(SAMPLES_JSON):
-    raise FileNotFoundError(f"[ERROR] {SAMPLES_JSON} is missing!")
-with open(SAMPLES_JSON, "r") as f:
-    SAMPLES = json.load(f)
-
-def load_sample_files(sample_key, sample_config):
-    source = sample_config.get("source", "local")
-    if source == "das":
-        filelist = sample_config["filelist"]
-        if not os.path.isfile(filelist):
-            raise FileNotFoundError(f"[ERROR] Missing filelist: {filelist}")
-        with open(filelist, "r") as f:
-            return [line.strip() for line in f if line.strip()]
-    return [sample_config["input"]]
-
-# Build a dictionary containing all input files for every sample.
-SAMPLE_FILES = {
-    key: load_sample_files(key, sample_config)
-    for key, sample_config in SAMPLES.items()
+SAMPLE_JSON_PATHS = {
+    os.path.splitext(os.path.basename(path))[0]: path
+    for path in sorted(glob.glob(f"{SAMPLES_DIR}/*.json"))
 }
 
-# Calculate the number of chunks required for each sample
-SAMPLE_CHUNKS = {
-    key: math.ceil(len(files) / CHUNK_SIZE)
-    for key, files in SAMPLE_FILES.items()
-}
+if not SAMPLE_JSON_PATHS:
+    raise FileNotFoundError(f"[ERROR] No sample files found in {SAMPLES_DIR}/")
 
-# Restrict Snakemake wildcards to configured sample names and integer indices.
+def load_sample(path):
+    with open(path, "r") as f:
+        return json.load(f)
+
+SAMPLES = {key: load_sample(path) for key, path in SAMPLE_JSON_PATHS.items()}
+
+# Restrict Snakemake wildcards to the discovered sample keys and integer
+# chunk indices.
 wildcard_constraints:
     sample_key = "|".join(SAMPLES.keys()),
     chunk_index = r"\d+"
 
+# Calculate the number of chunks required for each sample.
+SAMPLE_CHUNKS = {
+    key: math.ceil(len(sample["files"]) / CHUNK_SIZE)
+    for key, sample in SAMPLES.items()
+}
+
 # ------------------------------------------------------------------------------
 # Define per-chunk outputs
-# Instead of one job per file, we now have one job per chunk.
+# Instead of one job per file, there is one job per chunk.
 # This produces one temporary ROOT file per chunk.
 # ------------------------------------------------------------------------------
 
@@ -94,8 +111,8 @@ for key, num_chunks in SAMPLE_CHUNKS.items():
 # This is used by merge_sample to determine which per-chunk outputs belong
 # to each sample.
 OUTPUT_MAP = {
-    sample_config["output"]: key
-    for key, sample_config in SAMPLES.items()
+    sample["parameters"]["output"]: key
+    for key, sample in SAMPLES.items()
 }
 ALL_MERGED_OUTPUTS = list(OUTPUT_MAP.keys())
 
@@ -118,10 +135,15 @@ rule all:
 # Process chunks of NanoAOD files
 #
 # The job:
-#   1. Reads the sample configuration.
+#   1. Reads the sample's own JSON file (files + parameters).
 #   2. Selects the appropriate CHUNK of input files.
 #   3. Runs compile_and_run.C for each file in the chunk.
 #   4. Merges them internally to produce one ROOT output file for the chunk.
+#
+# Each job only depends on its own sample's JSON file (sample_config below),
+# not on every sample's file list. This means editing or regenerating one
+# sample no longer invalidates already-computed chunks belonging to other
+# samples.
 #
 # Jobs are submitted to the CERN HTCondor backend. Kerberos authentication is
 # required for submitting to the CERN HTCondor cluster, while the VOMS proxy
@@ -131,12 +153,13 @@ rule all:
 rule process_chunk:
     input:
         wrapper = "reana/runJob.py",
-        samples_json = SAMPLES_JSON,
-        filelists = [
-            sample_config["filelist"]
-            for sample_config in SAMPLES.values()
-            if sample_config.get("source") == "das"
-        ],
+        # Every sample file is named exactly "<sample_key>.json", so the path
+        # is deterministic from the wildcard alone - no lookup function is
+        # needed. (A lambda here previously broke `reana-client create` with
+        # "Object of type function is not JSON serializable": REANA's
+        # Snakemake integration cannot serialize a named/keyword input that
+        # is still an unresolved callable at workflow-creation time.)
+        sample_config = f"{SAMPLES_DIR}/{{sample_key}}.json",
         deps = [
             "compile_and_run.C",
             "runOnce.C",
@@ -204,4 +227,3 @@ rule publish_to_eos:
     shell:
         "mkdir -p {EOS_OUTPUT_DIR} && "
         "cp {input} {EOS_OUTPUT_DIR}/"
-

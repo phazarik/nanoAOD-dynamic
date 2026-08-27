@@ -26,7 +26,7 @@ nanoAOD-dynamic
 
 The actual physics processing happens in C++. `compile_and_run.C` starts things off by taking the XRootD file path, the sample era, and the output name, and then it fires up the `nanoAna` event processor. To run the machine learning models during the event loop, the ONNX C++ API from the `onnxruntime` folder is loaded straight into ROOT. This lets the code evaluate the DY models from the `trained_models` directory on the fly.
 
-### The REANA Infrastructure
+### The REANA infrastructure
 
 The REANA side handles getting jobs to the grid. It starts with `reana/samples.json`, a master list of dataset names, eras, and parameters. Running `reana/prepare.py` locally queries DAS for the actual XRootD URLs and spits out individual JSON files into the `reana/samples/` directory. Keeping these separate lets Snakemake process each sample independently, meaning a single failure does not require restarting everything.
 

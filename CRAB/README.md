@@ -21,6 +21,10 @@ output.root files
 ```
 Each worker runs the same analysis code with a different input file. Once a job finishes, the resulting `output.root` file is transferred to the configured EOS storage area.
 
+### Prerequisites
+*   Access to CERN lxplus.
+*   Access to CMS DAS (a valid grid certificate).
+
 ## How it works
 
 ```text

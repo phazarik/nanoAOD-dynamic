@@ -32,7 +32,7 @@ def main():
     chunk_index = int(sys.argv[2])
     chunk_size = int(sys.argv[3])
     final_outfile = sys.argv[4]
-    find_proxy()
+    proxy_path = find_proxy()
 
     ## The workflow is executed from the repository root, so the sample
     ## file can be accessed using this relative path.
@@ -58,6 +58,11 @@ def main():
     ## This prevents a futex deadlock during Ort::Env initialization.
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["OMP_THREAD_LIMIT"] = "1"
+
+    ## + following are added to strictly throttle underlying C++ math libraries
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
+    os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
     ## Force XRootD to use IPv4 to avoid silent IPv6 routing black holes 
     ## common on dual-stack grid worker nodes.
@@ -117,11 +122,20 @@ def main():
 
     else: print(">> No files were processed.")
 
+    ##clean up the proxy for safety
+    if os.path.isfile(proxy_path):
+        print(">> Removing proxy from worker node scratch space...")
+        os.remove(proxy_path)
+
 def find_proxy():
     proxy_path = os.path.abspath("proxy.pem")
     if not os.path.isfile(proxy_path):
         sys.exit(f"[ERROR] Proxy file not found at {proxy_path}")
+    
+    ## Secure the file to fix XRootD TLS warnings
+    os.chmod(proxy_path, 0o600)
     os.environ["X509_USER_PROXY"] = proxy_path
     print(f"\n>> X509_USER_PROXY set to: {proxy_path}")
+    return proxy_path ## Return the path for cleanup later
 
 if __name__ == "__main__": main()

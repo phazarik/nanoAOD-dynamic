@@ -53,7 +53,7 @@ EOS_OUTPUT_DIR = config.get("eos_output_dir", "/tmp/default_fallback")
 
 # Set how many input NanoAOD files to process per HTCondor job.
 # This prevents DDoS-ing the REANA scheduler and reduces job startup overhead.
-CHUNK_SIZE = 1
+CHUNK_SIZE = 1 # --> Set this to 20/50 for large submission; 1 = test on a few files
 
 # ------------------------------------------------------------------------------
 # Discover samples
@@ -176,8 +176,9 @@ rule process_chunk:
     resources:
         compute_backend = "htcondorcern",
         htcondor_max_runtime = HTCONDOR_MAX_RUNTIME,
-        kerberos = True,
-        voms_proxy = True
+	kubernetes_memory_limit = "4G",
+        kerberos = True
+        #voms_proxy = True ## bypassed by manually uploading the proxy
     shell:
         "mkdir -p {TMP_DIR} && "
         "export XRD_NETWORKTIMEOUT=60 &&"

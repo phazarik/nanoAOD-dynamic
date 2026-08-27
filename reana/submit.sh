@@ -58,3 +58,7 @@ cp "$PROXY" "$REPO_ROOT/proxy.pem"
 ## submit the workflow from the root directory where reana.yaml sits
 echo ">> Submitting workflow: $WORKFLOW_NAME (from $REPO_ROOT) ..."
 (cd "$REPO_ROOT" && reana-client run -w "$WORKFLOW_NAME")
+
+## CRITICAL: Remove the local proxy immediately for safety
+echo ">> Cleaning up local proxy file..."
+rm -f "$REPO_ROOT/proxy.pem"

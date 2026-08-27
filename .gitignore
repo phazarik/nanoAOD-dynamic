@@ -49,6 +49,9 @@ __pycache__/
 *.pyo
 .env
 
+# CMSSW releases
+**/CMSSW*/
+
 ## ONNX runtime and trained models are intentionally tracked
 !onnxruntime*/
 !onnxruntime*/**

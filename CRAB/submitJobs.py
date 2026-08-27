@@ -58,6 +58,10 @@ def main():
 
         ## Jobname is decided from the key in samples.json
         reqname = f"nanoAna_{key}"
+        project_dir = f"submitted/crab_{reqname}"
+        if os.path.isdir(project_dir):
+            print(f"{YELLOW}[WARNING] CRAB project already exists: {project_dir}. Skipping...{RESET}")
+            continue
 
         ## Export these variables so crab_config.py can read them dynamically
         os.environ['CRAB_ERA']     = era

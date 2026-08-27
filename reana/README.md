@@ -1,8 +1,6 @@
 # Run the analysis with REANA
 
-REANA is a tool made at CERN to run physics analyses in the cloud. Instead of running heavy scripts directly on an lxplus terminal, REANA takes the code and runs it on CERN's large computing clusters. It uses containers to bundle up all the required ROOT and CMS software and dispatches jobs to batch systems. This operates similarly to GitLab CI/CD, but is optimized specifically for physics workloads.
-
-Main documentation page: [https://docs.reana.io/](https://docs.reana.io/)
+REANA is a tool made at CERN to run physics analyses in the cloud. Instead of running heavy scripts directly on an lxplus terminal, REANA takes the code and runs it on CERN's large computing clusters. It uses containers to bundle up all the required ROOT and CMS software and dispatches jobs to batch systems. This operates similarly to GitLab CI/CD but is optimized specifically for physics workloads. Check out the main documentation page: [https://docs.reana.io/](https://docs.reana.io/)
 
 The configuration shared in this example utilizes **Snakemake** as the workflow management engine. It reads the workflow definition to build a dependency graph, figuring out which Condor jobs can run in parallel, when to merge chunks, and when to publish to EOS. The actual ROOT macros execute on the **HTCondor** compute backend. Final merged files are saved natively to the **EOS storage** backend using a **Kerberos** keytab.
 
@@ -15,12 +13,12 @@ The configuration shared in this example utilizes **Snakemake** as the workflow 
 ```
 nanoAOD-dynamic
 ├── reana
-│   ├── prepare.py
-│   ├── samples.json
-│   ├── Snakefile
-│   ├── runJob.py
-│   └── submit.sh
-└── reana.yaml
+│   ├── prepare.py    # prepares the input file lists
+│   ├── samples.json  # contains the datasets and analysis settings
+│   ├── Snakefile     # defines the REANA workflow
+│   ├── runJob.py     # runs the analysis for each input file in the worker nodes
+│   └── submit.sh     # submits the workflow to REANA
+└── reana.yaml        # REANA workflow configuration
 ```
 <p align="center"> <img src="../.github/images/reana.png" alt="REANA Workflow"> </p>
 

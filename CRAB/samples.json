@@ -7,7 +7,7 @@
   },
   "muondata": {
     "dataset": "/Muon/Run2022D-22Sep2023-v1/NANOAOD",
-    "era": "2022",
+    "era": "2022-postEE",
     "sample": "Muon_Run2022D",
     "outdir": "Muon"
   }

@@ -29,6 +29,7 @@
 #include "headers/Init.h"
 #include "headers/BookHistograms.h"
 #include "headers/CustomFunctions.h"
+#include "headers/loadGoldenJSONs.h"
 
 void nanoAna::Begin(TTree * /*tree*/)
 {
@@ -48,30 +49,46 @@ void nanoAna::SlaveBegin(TTree *tree)
   
   TString option = GetOption();
 
-  // Set _year from _era:
-  if     (_era.Contains("16")) _year = 2016;
-  else if(_era.Contains("17")) _year = 2017;
-  else if(_era.Contains("18")) _year = 2018;
-  else if(_era.Contains("22")) _year = 2022;
-  else if(_era.Contains("23")) _year = 2023;
-  else if(_era.Contains("24")) _year = 2024;
-  else cout<<"\033[31m[ERROR] nanoAna.C: Provide correct _era.\033[0m"<<endl;
+  // Set year and b-tagging working point from _era:
+  // b-tagging threshold source: https://btv-wiki.docs.cern.ch/ScaleFactors/
+  _btaggingWP = -1; _year = -1;
+  if      (_era.Contains("2016-pre"))  {_btaggingWP = 0.2598; _year = 2016;}
+  else if (_era.Contains("2016-post")) {_btaggingWP = 0.2489; _year = 2016;}
+  else if (_era.Contains("2017"))      {_btaggingWP = 0.3040; _year = 2017;}
+  else if (_era.Contains("2018"))      {_btaggingWP = 0.2783; _year = 2018;}
+  else if (_era.Contains("22-pre"))    {_btaggingWP = 0.3086; _year = 2022;}
+  else if (_era.Contains("22-post"))   {_btaggingWP = 0.3196; _year = 2022;}
+  else if (_era.Contains("23-pre"))    {_btaggingWP = 0.2431; _year = 2023;}
+  else if (_era.Contains("23-post"))   {_btaggingWP = 0.2435; _year = 2023;}
+  else if (_era.Contains("24"))        {_year = 2024;}
+  if(_year < 0 ) cout<<"\033[31m[ERROR] Could not set year. Provide correct _era.\033[0m"<<endl;
+  if(_btaggingWP < 0 ) cout<<"\033[31m[ERROR] Could not set b-tagging WP. Provide correct _era.\033[0m"<<endl;
 
+  cout<<"\033[33m"<<endl;
   cout<<"Input parameters:"<<endl;
-  cout<<"Data = "<< _data << " (0=MC, 1=Data)" <<endl;
-  cout<<"Year = "<<_year<<endl;
+  cout<<"  - Data   : "<<_data<< " (0=MC, 1=Data)" <<endl;
+  cout<<"  - Sample : "<<_sample<<endl;
+  cout<<"  - Era    : "<<_era<<endl;
+  cout<<"  - b-WP   : "<<_btaggingWP<<endl;
+  cout<<"  - Year   : "<<_year<<endl;
+  cout<<"\033[0m"<<endl;
 
   // Initialization of the counters:
   time(&start);
   nEvtTotal      = 0;
   nEvtRan        = 0;
   nEvtTrigger    = 0;
+  nEvtPass       = 0;
+  nThrown        = 0;
   genEventSumW   = 0;
 
   // Constants:
   nEvtGen = tree->GetEntries(); 
   test_event = 100;
   cout << ">> Total tree entries: " << nEvtGen << endl;
+
+  // Load Golden JSON data:
+  goldenJSONdata = loadGoldenJSON();
   
   // Create a TFile to write on.
   // Call any other function that does any kind of initialization of objects/variables.
@@ -84,18 +101,10 @@ void nanoAna::SlaveBegin(TTree *tree)
   // One environment to rule them all
   ort_env = new Ort::Env(ORT_LOGGING_LEVEL_WARNING, "MultiDNN_Inference");
   cout << ">> Initialized ONNX environment." << endl;
-  Ort::SessionOptions session_options;
   session_options.SetIntraOpNumThreads(1);
-    
-  // Load the DNN model for DY-vs-VLLD:
-  TString path_dy = "trained_models/DY-vs-VLLD_Run3_Feb19/";
-  session_dy = new Ort::Session(*ort_env, (path_dy + "model_DY-vs-VLLD_Run3_Feb19.onnx").Data(), session_options);
-  cout << ">> Loaded the DNN model for DY-vs-VLLD." << endl;
-  scale_min_dy = loadScalingParameters((path_dy + "scaling_parameters_min.txt").Data());
-  scale_max_dy = loadScalingParameters((path_dy + "scaling_parameters_max.txt").Data());
-  cout << ">> Loaded the scaling parameters for DY-vs-VLLD." << endl;
-  
-  // Similarly load other models ...
+
+  //Load all DNNs and scaling parameters here
+  loadAllDNNs();
   //-----------------------------------------------------------------------------------
 
   // Header for progress on screen:
@@ -107,11 +116,18 @@ void nanoAna::SlaveBegin(TTree *tree)
 void nanoAna::SlaveTerminate()
 {
   // Display summary:
-  cout<<"----------------------------------------"<<endl;
-  cout<<"Total events ran  = "<<nEvtTotal<<endl;
-  cout<<"Total good events = "<<nEvtRan<<endl;
-  cout<<"Total HLT events = "<<nEvtTrigger<<endl;
+  float goodevtfrac = ((float)nEvtRan)/((float)nEvtTotal);
+  float trigevtfrac = ((float)nEvtTrigger)/((float)nEvtTotal);
+  float notgoldenevtfrac  = ((float)nThrown)/((float)nEvtTotal);
+
+  cout<<"---------------------------------------------"<<endl;
+  cout<<"Summary:"<<fixed << setprecision(6)<<endl;
+  cout<<"nEvtTotal   = "<<nEvtTotal<<endl;
+  cout<<"nEvtRan     = "<<nEvtRan<<" ("<<goodevtfrac*100<<" %)"<<endl;
+  cout<<"nEvtTrigger = "<<nEvtTrigger<<" ("<<trigevtfrac*100<<" %)"<<endl;
+  if(_data==1) cout<<"nEvents not in golden json = "<<nThrown<<" ("<<notgoldenevtfrac*100<<" %)"<<endl;
   if(_data==0) cout<<"Sum of generator weights = "<<fixed<<setprecision(2)<<genEventSumW<<endl;
+  cout<<"---------------------------------------------"<<endl;
 
   /*
   //The following lines are written on the sum_<process name>.txt file
@@ -216,10 +232,34 @@ bool nanoAna::Process(Long64_t entry)
     nEvtRan++;  //Total number of good events
 
     bool trigger = true; //default, always true for MC
+      
     if(_data==1){
-      //Construct the trigger logic using the HLT_* branches and the _.
-      // It may be different for sample with names "Muon"/"Electron/"
-      trigger = true;
+      // Construct the trigger logic using the HLT_* branches and the _.
+      // It may be different for sample with names "Muon"/"Electron/" or the year.
+      // The following example uses muon and electron trigger paths and avoids overlap of events in datasets.
+      // Note: Dafault not set: code will break if the HLT path is not found in the file (by design).
+      bool trigger_mu  = true;  bool trigger_ele = true;
+      if     (_year == 2016){trigger_mu = *HLT_IsoMu24; trigger_ele=*HLT_Ele27_WPTight_Gsf;}
+      else if(_year == 2017){trigger_mu = *HLT_IsoMu27; trigger_ele=*HLT_Ele32_WPTight_Gsf_L1DoubleEG;}
+      else if(_year == 2018){trigger_mu = *HLT_IsoMu24; trigger_ele=*HLT_Ele32_WPTight_Gsf;}
+      else if(_year == 2022){trigger_mu = *HLT_IsoMu24; trigger_ele=*HLT_Ele32_WPTight_Gsf;}
+      else if(_year == 2023){trigger_mu = *HLT_IsoMu24; trigger_ele=*HLT_Ele32_WPTight_Gsf;}
+      else cout<<"\033[31m[ERROR] fix _era. Trigger path not chosen for year = "<<_year<<"\033[0m"<<endl;
+      bool overlapping_events = trigger_mu && trigger_ele;
+      
+      //Applying trigger on data: (logic: overlapping events are taken from the muon dataset)
+      if(_sample.Contains("Muon"))   trigger = trigger_mu;                 //includes overlap.
+      if(_sample.Contains("EGamma")) trigger = trigger_ele && !trigger_mu; //excludes overlap.
+      if(_sample.Contains("SingleElectron")) trigger = trigger_ele && !trigger_mu; //excludes overlap.
+	
+      //Throw awaying bad data that are not included in the GoldenJSON:
+      int runno = (int)*run;
+      int lumisection = (int)*luminosityBlock;
+      bool golden_event = checkGoldenJSON(runno, lumisection);
+      if(!golden_event){
+	nThrown++;
+	trigger = false;
+      }
     }
 
     if (trigger){

@@ -54,6 +54,11 @@
 #include <TVector3.h>
 #include <TVector2.h>
 
+//Headers for JSON support
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+using namespace std;
+
 //////////////////////////////////////////////////////////////////
 //                                                              //
 //              DEFINITION OF THE ANALYZER CLASS                //
@@ -473,12 +478,17 @@ public :
   void SetSumFileName(const char *SumFileName){ _SumFileName = SumFileName;}
   void SetData(int data){_data=data;}
   void SetEra(TString era){_era=era;}
+  void SetSampleName(TString sample){_sample=sample;}
   void SetVerbose(int verbose=10000){ _verbosity = verbose; }
   void BookHistograms();
   void SortPt(vector<Particle> &objarr);
   float DeltaPhi(float phi1, float phi2);
-  float TransvMass(float E_lep, float MET, float dphi);
-  int GenMother(int ind, int mom_ind);
+  float TransvMass(const TLorentzVector& obj);
+  int  MotherID(int partindex, int momindex);
+  bool isMatchingWithGen(Particle reco, vector<Particle> gencollection);
+  bool cleanFromArray(Particle target, vector<Particle> array, float dRcut);
+  json loadGoldenJSON();
+  bool checkGoldenJSON(int runno, int lumisection);
 
 protected:
   Hists h;
@@ -492,25 +502,28 @@ private:
   // Absolute constants: (fed from the driver script)
   const char *_HstFileName;
   const char *_SumFileName;
-  TString _era;
+  TString _era, _sample;
   int _verbosity;
 
   // Constants: (Initialized once; do not change during execution)
   int nEvtGen, test_event;
   int _data, _year;
-  TString _samplename;
+  float _btaggingWP;
 
   // Flags
   bool GoodEvt, GoodEvt2016, GoodEvt2017, GoodEvt2018;
   
   // Event counters:.
-  int nEvtTotal, nEvtRan, nEvtTrigger, nEvtPass;
+  int nEvtTotal, nEvtRan, nEvtTrigger, nThrown, nEvtPass;
 
-  //Variables:
+  // Variables:
   float metpt, metphi, genEventSumW;
 
   // Time counters:
   time_t start, end, buffer;
+
+  // json:
+  json goldenJSONdata; 
   
   // Arrays of objects used in analysis:
   vector<Particle> RecoMu, RecoJet;
@@ -518,7 +531,8 @@ private:
   //---------------------------------------------------------------------------------
   // DNN block
   // Global variables for DNNs:
-  Ort::Env* ort_env; 
+  Ort::Env* ort_env; //Manages logging and global state across all loaded models.
+  Ort::SessionOptions session_options; //Configuration settings for DNN sessions.
 
   // DNN 1: DY-vs-VLLD
   Ort::Session* session_dy;
@@ -529,15 +543,20 @@ private:
 
   // DNN specific functions:
   vector<float> loadScalingParameters(const char* filename);
+  void loadOneDNN(const TString& dir_path, 
+		  const TString& model_filename, 
+		  Ort::Session*& session, 
+		  std::vector<float>& scale_min, 
+		  std::vector<float>& scale_max);
+  void loadAllDNNs();
   float evaluateDNN(Ort::Session* session, 
-		    std::vector<float> input_vars, 
-		    const std::vector<float>& scale_min, 
-		    const std::vector<float>& scale_max,
-		    const char* input_name = "input",    //Specific to the model
-		    const char* output_name = "output"); //Specific to the model
+                    std::vector<float> input_vars, 
+                    const std::vector<float>& scale_min, 
+                    const std::vector<float>& scale_max,
+                    const char* input_name = "input",     //Specific to the model
+                    const char* output_name = "output");  //Specific to the model
   //---------------------------------------------------------------------------------
   
-
   ClassDefOverride(nanoAna,0);
 };
 

@@ -43,8 +43,8 @@ SAMPLES = {
     "datav13": {
         "input": "inputs/data_Muon0_2023C.root",
         "output": "outputs/hst_data_Muon0_2023C.root",
-        "era": "2023",
-        "sample": "data_Muon0_2023C.root",
+        "era": "2023-preBPix",
+        "sample": "Muon",
     },
 }
 
